@@ -39,6 +39,8 @@
 
 #include <CollisionPrevention/CollisionPrevention.hpp>
 
+#include <cmath>
+
 using namespace matrix;
 using namespace time_literals;
 namespace

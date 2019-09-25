@@ -40,6 +40,7 @@
 #include "CDev.hpp"
 
 #include <cstring>
+#include <cstdlib>
 
 #include <px4_posix.h>
 #include <drivers/drv_device.h>

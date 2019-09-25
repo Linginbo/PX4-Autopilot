@@ -44,6 +44,8 @@
 #include <px4_getopt.h>
 #include <px4_i2c.h>
 
+#include <stdlib.h>
+
 namespace i2cdetect
 {
 

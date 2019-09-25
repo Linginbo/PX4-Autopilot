@@ -53,12 +53,17 @@ list(APPEND nuttx_libs
 	nuttx_binfmt
 	nuttx_c
 	nuttx_configs
-	nuttx_xx
 	nuttx_drivers
 	nuttx_fs
 	nuttx_mm
 	nuttx_sched
 	)
+
+if(CONFIG_LIBCXX)
+	list(APPEND nuttx_libs nuttx_cxx)
+else()
+	list(APPEND nuttx_libs nuttx_xx)
+endif()
 
 if (CONFIG_NET)
 	list(APPEND nuttx_libs nuttx_net)
@@ -84,7 +89,6 @@ target_link_libraries(nuttx_arch
 )
 
 target_link_libraries(nuttx_c INTERFACE nuttx_drivers)
-target_link_libraries(nuttx_xx INTERFACE nuttx_c)
 
 target_link_libraries(px4 PRIVATE
 
@@ -108,6 +112,7 @@ target_link_libraries(px4 PRIVATE
 
 	m
 	gcc
+	#supc++
 	)
 
 target_link_libraries(px4 PRIVATE ${module_libraries})
