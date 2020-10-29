@@ -151,6 +151,14 @@ void LoggedTopics::add_default_topics()
 	add_topic("vehicle_attitude_groundtruth", 10);
 	add_topic("vehicle_global_position_groundtruth", 100);
 	add_topic("vehicle_local_position_groundtruth", 100);
+
+	add_topic("vehicle_angular_acceleration");
+	add_topic("vehicle_angular_velocity");
+	add_topic("vehicle_rates_setpoint");
+	add_topic("vehicle_attitude");
+	add_topic("vehicle_attitude_setpoint");
+	add_topic("vehicle_local_position");
+	add_topic("vehicle_local_position_setpoint");
 #endif /* CONFIG_ARCH_BOARD_PX4_SITL */
 }
 

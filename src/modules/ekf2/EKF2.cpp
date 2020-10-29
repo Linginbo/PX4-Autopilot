@@ -387,7 +387,8 @@ void EKF2::Run()
 		// push imu data into estimator
 		_ekf.setIMUData(imu_sample_new);
 
-		// publish attitude immediately (uses quaternion from output predictor)
+		// publish output predictor results immediately
+		publish_local_position(now);
 		publish_attitude(now);
 
 		// read mag data
@@ -681,172 +682,50 @@ void EKF2::Run()
 
 		if (ekf_updated) {
 
-			vehicle_local_position_s lpos{};
-			_ekf.get_ekf_lpos_accuracy(&lpos.eph, &lpos.epv);
+			// publish vehicle_odometry
+			publish_odometry(now, imu_sample_new);
 
 			filter_control_status_u control_status;
 			_ekf.get_control_mode(&control_status.value);
 
-			// only publish position after successful alignment
-			if (control_status.flags.tilt_align) {
-				// generate vehicle local position data
-				lpos.timestamp_sample = imu_sample_new.time_us;
+			// publish vehicle_global_position if valid
+			if (_ekf.global_position_is_valid()) {
 
-				// Position of body origin in local NED frame
 				const Vector3f position = _ekf.getPosition();
-				lpos.x = position(0);
-				lpos.y = position(1);
-				lpos.z = position(2);
 
-				// Velocity of body origin in local NED frame (m/s)
-				const Vector3f velocity = _ekf.getVelocity();
-				lpos.vx = velocity(0);
-				lpos.vy = velocity(1);
-				lpos.vz = velocity(2);
+				// only publish if position has changed by at least 1 mm (map_projection_reproject is relatively expensive)
+				if ((_last_local_position_for_gpos - position).longerThan(0.001f)) {
 
-				// vertical position time derivative (m/s)
-				lpos.z_deriv = _ekf.getVerticalPositionDerivative();
+					// generate and publish global position data
+					vehicle_global_position_s global_pos{};
+					global_pos.timestamp_sample = imu_sample_new.time_us;
 
-				// Acceleration of body origin in local frame
-				Vector3f vel_deriv = _ekf.getVelocityDerivative();
-				lpos.ax = vel_deriv(0);
-				lpos.ay = vel_deriv(1);
-				lpos.az = vel_deriv(2);
+					map_projection_reproject(&_ekf_origin, position(0), position(1), &global_pos.lat, &global_pos.lon);
 
-				// TODO: better status reporting
-				lpos.xy_valid = _ekf.local_position_is_valid() && !_preflt_checker.hasHorizFailed();
-				lpos.z_valid = !_preflt_checker.hasVertFailed();
-				lpos.v_xy_valid = _ekf.local_position_is_valid() && !_preflt_checker.hasHorizFailed();
-				lpos.v_z_valid = !_preflt_checker.hasVertFailed();
+					global_pos.lat_lon_reset_counter = _xy_reset_counter;
 
-				// Position of local NED origin in GPS / WGS84 frame
-				map_projection_reference_s ekf_origin;
-				uint64_t origin_time;
+					global_pos.alt = -position(2) + _gps_alt_ref; // Altitude AMSL in meters
+					global_pos.alt_ellipsoid = filter_altitude_ellipsoid(global_pos.alt);
 
-				// true if position (x,y,z) has a valid WGS-84 global reference (ref_lat, ref_lon, alt)
-				const bool ekf_origin_valid = _ekf.get_ekf_origin(&origin_time, &ekf_origin, &lpos.ref_alt);
-				lpos.xy_global = ekf_origin_valid;
-				lpos.z_global = ekf_origin_valid;
+					// global altitude has opposite sign of local down position
+					global_pos.delta_alt = -_delta_z;
 
-				if (ekf_origin_valid && (origin_time > lpos.ref_timestamp)) {
-					lpos.ref_timestamp = origin_time;
-					lpos.ref_lat = ekf_origin.lat_rad * 180.0 / M_PI; // Reference point latitude in degrees
-					lpos.ref_lon = ekf_origin.lon_rad * 180.0 / M_PI; // Reference point longitude in degrees
-				}
+					_ekf.get_ekf_gpos_accuracy(&global_pos.eph, &global_pos.epv);
 
-				// The rotation of the tangent plane vs. geographical north
-				const Quatf q = _ekf.getQuaternion();
+					global_pos.terrain_alt_valid = _ekf.isTerrainEstimateValid();
 
-				Quatf delta_q_reset;
-				_ekf.get_quat_reset(&delta_q_reset(0), &lpos.heading_reset_counter);
+					if (global_pos.terrain_alt_valid) {
+						global_pos.terrain_alt = _gps_alt_ref - _ekf.getTerrainVertPos(); // Terrain altitude in m, WGS84
 
-				lpos.heading = Eulerf(q).psi();
-				lpos.delta_heading = Eulerf(delta_q_reset).psi();
-
-				lpos.dist_bottom_valid = _ekf.isTerrainEstimateValid();
-
-				float terrain_vpos = _ekf.getTerrainVertPos();
-				lpos.dist_bottom = terrain_vpos - lpos.z; // Distance to bottom surface (ground) in meters
-
-				// constrain the distance to ground to _rng_gnd_clearance
-				if (lpos.dist_bottom < _param_ekf2_min_rng.get()) {
-					lpos.dist_bottom = _param_ekf2_min_rng.get();
-				}
-
-				if (!_had_valid_terrain) {
-					_had_valid_terrain = lpos.dist_bottom_valid;
-				}
-
-				// only consider ground effect if compensation is configured and the vehicle is armed (props spinning)
-				if ((_param_ekf2_gnd_eff_dz.get() > 0.0f) && _armed) {
-					// set ground effect flag if vehicle is closer than a specified distance to the ground
-					if (lpos.dist_bottom_valid) {
-						_ekf.set_gnd_effect_flag(lpos.dist_bottom < _param_ekf2_gnd_max_hgt.get());
-
-						// if we have no valid terrain estimate and never had one then use ground effect flag from land detector
-						// _had_valid_terrain is used to make sure that we don't fall back to using this option
-						// if we temporarily lose terrain data due to the distance sensor getting out of range
-
-					} else if (!_had_valid_terrain) {
-						// update ground effect flag based on land detector state
-						_ekf.set_gnd_effect_flag(_in_ground_effect);
+					} else {
+						global_pos.terrain_alt = 0.0f; // Terrain altitude in m, WGS84
 					}
 
-				} else {
-					_ekf.set_gnd_effect_flag(false);
-				}
+					global_pos.dead_reckoning = _ekf.inertial_dead_reckoning(); // True if this position is estimated through dead-reckoning
+					global_pos.timestamp = _replay_mode ? now : hrt_absolute_time();
+					_global_position_pub.publish(global_pos);
 
-				_ekf.get_ekf_vel_accuracy(&lpos.evh, &lpos.evv);
-
-				// get state reset information of position and velocity
-				_ekf.get_posD_reset(&lpos.delta_z, &lpos.z_reset_counter);
-				_ekf.get_velD_reset(&lpos.delta_vz, &lpos.vz_reset_counter);
-				_ekf.get_posNE_reset(&lpos.delta_xy[0], &lpos.xy_reset_counter);
-				_ekf.get_velNE_reset(&lpos.delta_vxy[0], &lpos.vxy_reset_counter);
-
-				// get control limit information
-				_ekf.get_ekf_ctrl_limits(&lpos.vxy_max, &lpos.vz_max, &lpos.hagl_min, &lpos.hagl_max);
-
-				// convert NaN to INFINITY
-				if (!PX4_ISFINITE(lpos.vxy_max)) {
-					lpos.vxy_max = INFINITY;
-				}
-
-				if (!PX4_ISFINITE(lpos.vz_max)) {
-					lpos.vz_max = INFINITY;
-				}
-
-				if (!PX4_ISFINITE(lpos.hagl_min)) {
-					lpos.hagl_min = INFINITY;
-				}
-
-				if (!PX4_ISFINITE(lpos.hagl_max)) {
-					lpos.hagl_max = INFINITY;
-				}
-
-				// publish vehicle local position data
-				lpos.timestamp = _replay_mode ? now : hrt_absolute_time();
-				_local_position_pub.publish(lpos);
-
-				// publish vehicle_odometry
-				publish_odometry(now, imu_sample_new, lpos);
-
-				// publish vehicle_global_position if valid
-				if (_ekf.global_position_is_valid() && !_preflt_checker.hasFailed()) {
-					// only publish if position has changed by at least 1 mm (map_projection_reproject is relatively expensive)
-					if ((_last_local_position_for_gpos - position).longerThan(0.001f)) {
-
-						// generate and publish global position data
-						vehicle_global_position_s global_pos{};
-						global_pos.timestamp_sample = imu_sample_new.time_us;
-
-						map_projection_reproject(&ekf_origin, lpos.x, lpos.y, &global_pos.lat, &global_pos.lon);
-
-						global_pos.lat_lon_reset_counter = lpos.xy_reset_counter;
-
-						global_pos.alt = -lpos.z + lpos.ref_alt; // Altitude AMSL in meters
-						global_pos.alt_ellipsoid = filter_altitude_ellipsoid(global_pos.alt);
-
-						// global altitude has opposite sign of local down position
-						global_pos.delta_alt = -lpos.delta_z;
-
-						_ekf.get_ekf_gpos_accuracy(&global_pos.eph, &global_pos.epv);
-
-						global_pos.terrain_alt_valid = lpos.dist_bottom_valid;
-
-						if (global_pos.terrain_alt_valid) {
-							global_pos.terrain_alt = lpos.ref_alt - terrain_vpos; // Terrain altitude in m, WGS84
-
-						} else {
-							global_pos.terrain_alt = 0.0f; // Terrain altitude in m, WGS84
-						}
-
-						global_pos.dead_reckoning = _ekf.inertial_dead_reckoning(); // True if this position is estimated through dead-reckoning
-						global_pos.timestamp = _replay_mode ? now : hrt_absolute_time();
-						_global_position_pub.publish(global_pos);
-
-						_last_local_position_for_gpos = position;
-					}
+					_last_local_position_for_gpos = position;
 				}
 			}
 
@@ -874,8 +753,7 @@ void EKF2::Run()
 							status.hgt_test_ratio, status.tas_test_ratio,
 							status.hagl_test_ratio, status.beta_test_ratio);
 
-			status.pos_horiz_accuracy = lpos.eph;
-			status.pos_vert_accuracy = lpos.epv;
+			_ekf.get_ekf_lpos_accuracy(&status.pos_horiz_accuracy, &status.pos_vert_accuracy);
 			_ekf.get_ekf_soln_status(&status.solution_status_flags);
 			_ekf.getImuVibrationMetrics().copyTo(status.vibe);
 			status.time_slip = _last_time_slip_us * 1e-6f;
@@ -1225,8 +1103,7 @@ void EKF2::publish_attitude(const hrt_abstime &timestamp)
 		// generate vehicle attitude quaternion data
 		vehicle_attitude_s att;
 		att.timestamp_sample = timestamp;
-		const Quatf q{_ekf.calculate_quaternion()};
-		q.copyTo(att.q);
+		_ekf.getQuaternion().copyTo(att.q);
 
 		_ekf.get_quat_reset(&att.delta_q_reset[0], &att.quat_reset_counter);
 		att.timestamp = _replay_mode ? timestamp : hrt_absolute_time();
@@ -1240,7 +1117,128 @@ void EKF2::publish_attitude(const hrt_abstime &timestamp)
 	}
 }
 
-void EKF2::publish_odometry(const hrt_abstime &timestamp, const imuSample &imu, const vehicle_local_position_s &lpos)
+void EKF2::publish_local_position(const hrt_abstime &timestamp)
+{
+	filter_control_status_u control_status;
+	_ekf.get_control_mode(&control_status.value);
+
+	vehicle_local_position_s lpos{};
+
+	// generate vehicle local position data
+	lpos.timestamp_sample = timestamp;
+
+	// Position of body origin in local NED frame
+	const Vector3f position = _ekf.getPosition();
+	lpos.x = position(0);
+	lpos.y = position(1);
+	lpos.z = position(2);
+
+	// Velocity of body origin in local NED frame (m/s)
+	const Vector3f velocity = _ekf.getVelocity();
+	lpos.vx = velocity(0);
+	lpos.vy = velocity(1);
+	lpos.vz = velocity(2);
+
+	// vertical position time derivative (m/s)
+	lpos.z_deriv = _ekf.getVerticalPositionDerivative();
+
+	// Acceleration of body origin in local frame
+	Vector3f vel_deriv = _ekf.getVelocityDerivative();
+	lpos.ax = vel_deriv(0);
+	lpos.ay = vel_deriv(1);
+	lpos.az = vel_deriv(2);
+
+	// TODO: better status reporting
+	lpos.xy_valid = _ekf.local_position_is_valid() && !_preflt_checker.hasHorizFailed();
+	lpos.z_valid = !_preflt_checker.hasVertFailed();
+	lpos.v_xy_valid = _ekf.local_position_is_valid() && !_preflt_checker.hasHorizFailed();
+	lpos.v_z_valid = !_preflt_checker.hasVertFailed();
+
+	// true if position (x,y,z) has a valid WGS-84 global reference (ref_lat, ref_lon, alt)
+	const bool ekf_origin_valid = _ekf.get_ekf_origin(&_ekf_origin_time, &_ekf_origin, &_gps_alt_ref);
+	lpos.ref_alt = _gps_alt_ref;
+	lpos.xy_global = ekf_origin_valid;
+	lpos.z_global = ekf_origin_valid;
+
+	if (ekf_origin_valid && (_ekf_origin_time > lpos.ref_timestamp)) {
+		lpos.ref_timestamp = _ekf_origin_time;
+		lpos.ref_lat = math::degrees(_ekf_origin.lat_rad); // Reference point latitude in degrees
+		lpos.ref_lon = math::degrees(_ekf_origin.lon_rad); // Reference point longitude in degrees
+	}
+
+	Quatf delta_q_reset;
+	_ekf.get_quat_reset(&delta_q_reset(0), &lpos.heading_reset_counter);
+
+	lpos.heading = Eulerf(_ekf.getQuaternion()).psi();
+	lpos.delta_heading = Eulerf(delta_q_reset).psi();
+
+	lpos.dist_bottom_valid = _ekf.isTerrainEstimateValid();
+
+	lpos.dist_bottom = _ekf.getTerrainVertPos() - lpos.z; // Distance to bottom surface (ground) in meters
+
+	// constrain the distance to ground to _rng_gnd_clearance
+	if (lpos.dist_bottom < _param_ekf2_min_rng.get()) {
+		lpos.dist_bottom = _param_ekf2_min_rng.get();
+	}
+
+	if (!_had_valid_terrain) {
+		_had_valid_terrain = lpos.dist_bottom_valid;
+	}
+
+	// only consider ground effect if compensation is configured and the vehicle is armed (props spinning)
+	if ((_param_ekf2_gnd_eff_dz.get() > 0.0f) && _armed) {
+		// set ground effect flag if vehicle is closer than a specified distance to the ground
+		if (lpos.dist_bottom_valid) {
+			_ekf.set_gnd_effect_flag(lpos.dist_bottom < _param_ekf2_gnd_max_hgt.get());
+
+			// if we have no valid terrain estimate and never had one then use ground effect flag from land detector
+			// _had_valid_terrain is used to make sure that we don't fall back to using this option
+			// if we temporarily lose terrain data due to the distance sensor getting out of range
+
+		} else if (!_had_valid_terrain) {
+			// update ground effect flag based on land detector state
+			_ekf.set_gnd_effect_flag(_in_ground_effect);
+		}
+
+	} else {
+		_ekf.set_gnd_effect_flag(false);
+	}
+
+	_ekf.get_ekf_lpos_accuracy(&lpos.eph, &lpos.epv);
+	_ekf.get_ekf_vel_accuracy(&lpos.evh, &lpos.evv);
+
+	// get state reset information of position and velocity
+	_ekf.get_posD_reset(&lpos.delta_z, &lpos.z_reset_counter);
+	_ekf.get_velD_reset(&lpos.delta_vz, &lpos.vz_reset_counter);
+	_ekf.get_posNE_reset(&lpos.delta_xy[0], &lpos.xy_reset_counter);
+	_ekf.get_velNE_reset(&lpos.delta_vxy[0], &lpos.vxy_reset_counter);
+
+	// get control limit information
+	_ekf.get_ekf_ctrl_limits(&lpos.vxy_max, &lpos.vz_max, &lpos.hagl_min, &lpos.hagl_max);
+
+	// convert NaN to INFINITY
+	if (!PX4_ISFINITE(lpos.vxy_max)) {
+		lpos.vxy_max = INFINITY;
+	}
+
+	if (!PX4_ISFINITE(lpos.vz_max)) {
+		lpos.vz_max = INFINITY;
+	}
+
+	if (!PX4_ISFINITE(lpos.hagl_min)) {
+		lpos.hagl_min = INFINITY;
+	}
+
+	if (!PX4_ISFINITE(lpos.hagl_max)) {
+		lpos.hagl_max = INFINITY;
+	}
+
+	// publish vehicle local position data
+	lpos.timestamp = _replay_mode ? timestamp : hrt_absolute_time();
+	_local_position_pub.publish(lpos);
+}
+
+void EKF2::publish_odometry(const hrt_abstime &timestamp, const imuSample &imu)
 {
 	// generate vehicle odometry data
 	vehicle_odometry_s odom{};
@@ -1249,15 +1247,18 @@ void EKF2::publish_odometry(const hrt_abstime &timestamp, const imuSample &imu, 
 	odom.local_frame = vehicle_odometry_s::LOCAL_FRAME_NED;
 
 	// Vehicle odometry position
-	odom.x = lpos.x;
-	odom.y = lpos.y;
-	odom.z = lpos.z;
+	const Vector3f position = _ekf.getPosition();
+	odom.x = position(0);
+	odom.y = position(1);
+	odom.z = position(2);
 
 	// Vehicle odometry linear velocity
+	const Vector3f velocity = _ekf.getVelocity();
+	odom.vx = velocity(0);
+	odom.vy = velocity(1);
+	odom.vz = velocity(2);
+
 	odom.velocity_frame = vehicle_odometry_s::LOCAL_FRAME_FRD;
-	odom.vx = lpos.vx;
-	odom.vy = lpos.vy;
-	odom.vz = lpos.vz;
 
 	// Vehicle odometry quaternion
 	_ekf.getQuaternion().copyTo(odom.q);
