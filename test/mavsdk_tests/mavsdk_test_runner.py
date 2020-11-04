@@ -409,6 +409,16 @@ class Tester:
                         self.verbose)
                     self.active_runners.append(gzclient_runner)
 
+            if self.config['simulator'] == 'jsbsim':
+                jsbsim_runner = ph.JSBSimRunner(
+                    os.getcwd(),
+                    log_dir,
+                    test['vehicle'],
+                    case,
+                    self.get_max_speed_factor(test),
+                    self.verbose)
+                self.active_runners.append(jsbsim_runner)
+
         mavsdk_tests_runner = ph.TestRunner(
             os.getcwd(),
             log_dir,

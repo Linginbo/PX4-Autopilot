@@ -261,6 +261,28 @@ class GzclientRunner(Runner):
         self.args = ["--verbose"]
 
 
+class JSBSimRunner(Runner):
+    def __init__(self,
+                 workspace_dir: str,
+                 log_dir: str,
+                 model: str,
+                 case: str,
+                 speed_factor: float,
+                 verbose: bool):
+        super().__init__(log_dir, model, case, verbose)
+        self.name = "jsbsim_bridge"
+        self.cwd = workspace_dir
+        self.env["GAZEBO_PLUGIN_PATH"] = \
+            workspace_dir + "/build/px4_sitl_default/build_gazebo"
+        self.env["GAZEBO_MODEL_PATH"] = \
+            workspace_dir + "/Tools/sitl_gazebo/models"
+        self.env["PX4_SIM_SPEED_FACTOR"] = str(speed_factor)
+        self.cmd = "jsbsim_bridge"
+        self.args = ["--verbose",
+                     workspace_dir + "/Tools/sitl_gazebo/worlds/" +
+                     "empty.world"]
+
+
 class TestRunner(Runner):
     def __init__(self,
                  workspace_dir: str,
