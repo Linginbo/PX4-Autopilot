@@ -203,8 +203,13 @@ EKF2::~EKF2()
 
 int EKF2::print_status()
 {
-	PX4_INFO_RAW("ekf2:%d attitude: %d, local position: %d, global position: %d\n", _instance, _ekf.attitude_valid(),
-		     _ekf.local_position_is_valid(), _ekf.global_position_is_valid());
+#if !defined(CONSTRAINED_FLASH)
+	PX4_INFO_RAW("ekf2:%d attitude: %d, local position: %d, global position: %d\n", _instance,
+		     _ekf.attitude_valid(), _ekf.local_position_is_valid(), _ekf.global_position_is_valid());
+
+	_ekf.print_status();
+#endif // !CONSTRAINED_FLASH
+
 	perf_print_counter(_ecl_ekf_update_perf);
 	perf_print_counter(_ecl_ekf_update_full_perf);
 	return 0;
@@ -1148,10 +1153,10 @@ bool EKF2::UpdateExtVisionSample(ekf2_timestamps_s &ekf2_timestamps, vehicle_odo
 				ev_data.vel(2) = ev_odom.vz;
 
 				if (ev_odom.velocity_frame == vehicle_odometry_s::BODY_FRAME_FRD) {
-					ev_data.vel_frame = estimator::BODY_FRAME_FRD;
+					ev_data.vel_frame = estimator::velocity_frame_t::BODY_FRAME_FRD;
 
 				} else {
-					ev_data.vel_frame = estimator::LOCAL_FRAME_FRD;
+					ev_data.vel_frame = estimator::velocity_frame_t::LOCAL_FRAME_FRD;
 				}
 
 				// velocity measurement error from ev_data or parameters
@@ -1231,13 +1236,13 @@ bool EKF2::UpdateFlowSample(ekf2_timestamps_s &ekf2_timestamps, optical_flow_s &
 		if (_param_ekf2_aid_mask.get() & MASK_USE_OF) {
 
 			flowSample flow {
-				.quality = optical_flow.quality,
 				// NOTE: the EKF uses the reverse sign convention to the flow sensor. EKF assumes positive LOS rate
 				// is produced by a RH rotation of the image about the sensor axis.
 				.flow_xy_rad = Vector2f{-optical_flow.pixel_flow_x_integral, -optical_flow.pixel_flow_y_integral},
 				.gyro_xyz = Vector3f{-optical_flow.gyro_x_rate_integral, -optical_flow.gyro_y_rate_integral, -optical_flow.gyro_z_rate_integral},
 				.dt = 1e-6f * (float)optical_flow.integration_timespan,
 				.time_us = optical_flow.timestamp,
+				.quality = optical_flow.quality,
 			};
 
 			if (PX4_ISFINITE(optical_flow.pixel_flow_y_integral) &&
