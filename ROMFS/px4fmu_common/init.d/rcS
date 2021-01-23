@@ -516,6 +516,8 @@ else
 		gyro_fft start
 	fi
 
+	output_predictor start
+
 	#
 	# Optional board supplied extras: rc.board_extras
 	#

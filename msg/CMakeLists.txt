@@ -103,6 +103,7 @@ set(msg_files
 	onboard_computer_status.msg
 	optical_flow.msg
 	orbit_status.msg
+	output_predictor.msg
 	parameter_update.msg
 	ping.msg
 	position_controller_landing_status.msg
