@@ -179,6 +179,7 @@ private:
 		(ParamFloat<px4::params::GND_SPEED_I>) _param_speed_i,
 		(ParamFloat<px4::params::GND_SPEED_D>) _param_speed_d,
 		(ParamFloat<px4::params::GND_SPEED_IMAX>) _param_speed_imax,
+		(ParamFloat<px4::params::GND_SPEED_I_MINSPEED>) _param_speed_i_minspeed,
 		(ParamFloat<px4::params::GND_SPEED_THR_SC>) _param_throttle_speed_scaler,
 
 		(ParamFloat<px4::params::GND_THR_MIN>) _param_throttle_min,

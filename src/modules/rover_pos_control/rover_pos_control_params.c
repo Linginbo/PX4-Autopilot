@@ -193,6 +193,20 @@ PARAM_DEFINE_FLOAT(GND_SPEED_P, 2.0f);
 PARAM_DEFINE_FLOAT(GND_SPEED_I, 3.0f);
 
 /**
+ * Speed Integral gain
+ *
+ * This is the minimum speed for the speed closed loop controller integrator to be active
+ *
+ * @unit %m/s
+ * @min 0.00
+ * @max 50.0
+ * @decimal 3
+ * @increment 0.005
+ * @group Rover Position Control
+ */
+PARAM_DEFINE_FLOAT(GND_SPEED_I_MINSPEED, 0.1f);
+
+/**
  * Speed proportional gain
  *
  * This is the derivative gain for the speed closed loop controller

@@ -243,6 +243,11 @@ RoverPositionControl::control_position(const matrix::Vector2d &current_position,
 			const float x_vel = vel(0);
 			const float x_acc = _vehicle_acceleration_sub.get().xyz[0];
 
+			// Reset Groundspeed integral when the vehicle is not moving
+			if (fabs(x_vel) <  _param_speed_i_minspeed.get()) {
+				pid_reset_integral(&_speed_ctrl);
+			}
+
 			// Compute airspeed control out and just scale it as a constant
 			mission_throttle = _param_throttle_speed_scaler.get()
 					   * pid_calculate(&_speed_ctrl, mission_target_speed, x_vel, x_acc, dt);
