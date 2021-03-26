@@ -73,10 +73,10 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor Configuration
-	static constexpr float FIFO_SAMPLE_DT{1e6f / 8000.f};
-	static constexpr uint32_t SAMPLES_PER_TRANSFER{2};                   // ensure at least 1 new accel sample per transfer
-	static constexpr float GYRO_RATE{1e6f / FIFO_SAMPLE_DT};             // 8000 Hz gyro
-	static constexpr float ACCEL_RATE{GYRO_RATE / SAMPLES_PER_TRANSFER}; // 4000 Hz accel
+	static constexpr float FIFO_SAMPLE_DT{1e6f / 32000.f};
+	static constexpr uint32_t SAMPLES_PER_TRANSFER{8};                   // ensure at least 1 new accel sample per transfer
+	static constexpr float GYRO_RATE{1e6f / FIFO_SAMPLE_DT};             // 32000 Hz gyro
+	static constexpr float ACCEL_RATE{GYRO_RATE / SAMPLES_PER_TRANSFER}; //  4000 Hz accel
 
 	// maximum FIFO samples per transfer is limited to the size of sensor_accel_fifo/sensor_gyro_fifo
 	static constexpr uint32_t FIFO_MAX_SAMPLES{math::min(math::min(FIFO::SIZE / sizeof(FIFO::DATA), sizeof(sensor_gyro_fifo_s::x) / sizeof(sensor_gyro_fifo_s::x[0])), sizeof(sensor_accel_fifo_s::x) / sizeof(sensor_accel_fifo_s::x[0]) * (int)(GYRO_RATE / ACCEL_RATE))};
@@ -162,7 +162,7 @@ private:
 	register_config_t _register_cfg[size_register_cfg] {
 		// Register               | Set bits, Clear bits
 		{ Register::CONFIG,        CONFIG_BIT::FIFO_MODE | CONFIG_BIT::DLPF_CFG_BYPASS_DLPF_8KHZ, 0 },
-		{ Register::GYRO_CONFIG,   GYRO_CONFIG_BIT::FS_SEL_2000_DPS, GYRO_CONFIG_BIT::FCHOICE_B_8KHZ_BYPASS_DLPF },
+		{ Register::GYRO_CONFIG,   GYRO_CONFIG_BIT::FS_SEL_2000_DPS, GYRO_CONFIG_BIT::FCHOICE_B_32KHZ_BYPASS_DLPF },
 		{ Register::ACCEL_CONFIG,  ACCEL_CONFIG_BIT::ACCEL_FS_SEL_16G, 0 },
 		{ Register::ACCEL_CONFIG2, ACCEL_CONFIG2_BIT::ACCEL_FCHOICE_B_BYPASS_DLPF, 0 },
 		{ Register::FIFO_EN,       FIFO_EN_BIT::GYRO_FIFO_EN | FIFO_EN_BIT::ACCEL_FIFO_EN, 0 },

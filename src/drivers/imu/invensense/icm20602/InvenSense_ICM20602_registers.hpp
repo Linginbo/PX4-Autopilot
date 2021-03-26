@@ -111,7 +111,8 @@ enum GYRO_CONFIG_BIT : uint8_t {
 	FS_SEL_2000_DPS	= Bit4 | Bit3, // 0b11000
 
 	// FCHOICE_B [1:0]
-	FCHOICE_B_8KHZ_BYPASS_DLPF = Bit1 | Bit0, // 0b00 - 3-dB BW: 3281 Noise BW (Hz): 3451.0   8 kHz
+	FCHOICE_B_32KHZ_BYPASS_DLPF = Bit0,        // 0b01 - 3-dB BW: 8173 Noise BW (Hz): 8595.1  32 kHz
+	FCHOICE_B_8KHZ_BYPASS_DLPF  = Bit1 | Bit0, // 0b00 - 3-dB BW: 3281 Noise BW (Hz): 3451.0   8 kHz
 };
 
 // ACCEL_CONFIG
