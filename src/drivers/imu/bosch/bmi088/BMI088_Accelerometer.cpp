@@ -99,6 +99,8 @@ int BMI088_Accelerometer::probe()
 
 	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
 
+	PX4_INFO("ACC_CHIP_ID 0x%02x", ACC_CHIP_ID);
+
 	if (ACC_CHIP_ID == ID_088) {
 		DEVICE_DEBUG("BMI088 Accel");
 
@@ -144,7 +146,7 @@ void BMI088_Accelerometer::RunImpl()
 				ScheduleDelayed(100_ms);
 
 			} else {
-				PX4_DEBUG("Reset not complete, check again in 10 ms");
+				PX4_DEBUG("Accel Reset not complete, check again in 10 ms");
 				ScheduleDelayed(10_ms);
 			}
 		}

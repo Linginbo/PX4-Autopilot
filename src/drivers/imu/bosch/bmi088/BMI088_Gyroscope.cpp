@@ -84,14 +84,18 @@ void BMI088_Gyroscope::print_status()
 
 int BMI088_Gyroscope::probe()
 {
-	const uint8_t chipid = RegisterRead(Register::GYRO_CHIP_ID);
+	for (int i = 0; i < 100; i++) {
+		const uint8_t chipid = RegisterRead(Register::GYRO_CHIP_ID);
+		PX4_ERR("GYRO_CHIP_ID 0x%02x", chipid);
 
-	if (chipid != ID) {
-		DEVICE_DEBUG("unexpected GYRO_CHIP_ID 0x%02x", chipid);
-		return PX4_ERROR;
+		if (chipid == ID) {
+			return PX4_OK;
+		}
 	}
 
-	return PX4_OK;
+	//PX4_ERR("unexpected GYRO_CHIP_ID 0x%02x", chipid);
+
+	return PX4_ERROR;
 }
 
 void BMI088_Gyroscope::RunImpl()
@@ -123,7 +127,7 @@ void BMI088_Gyroscope::RunImpl()
 				ScheduleDelayed(100_ms);
 
 			} else {
-				PX4_DEBUG("Reset not complete, check again in 10 ms");
+				PX4_DEBUG("Gyro Reset not complete, check again in 10 ms");
 				ScheduleDelayed(10_ms);
 			}
 		}

@@ -35,6 +35,8 @@ px4_add_module(
 	MODULE drivers__imu__bosch__bmi088
 	MAIN bmi088
 	COMPILE_FLAGS
+		#-O0
+		#-DDEBUG_BUILD
 	SRCS
 		Bosch_BMI088_Accelerometer_Registers.hpp
 		Bosch_BMI088_Gyroscope_Registers.hpp

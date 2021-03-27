@@ -661,8 +661,12 @@ void EKF2::PublishInnovations(const hrt_abstime &timestamp, const imuSample &imu
 	_ekf.getFlowInnov(innovations.flow);
 	_ekf.getHeadingInnov(innovations.heading);
 	_ekf.getMagInnov(innovations.mag_field);
+#if defined(ECL_EKF_DRAG_FUSION)
 	_ekf.getDragInnov(innovations.drag);
+#endif // ECL_EKF_DRAG_FUSION
+#if defined(ECL_EKF_AIRSPEED_FUSION)
 	_ekf.getAirspeedInnov(innovations.airspeed);
+#endif // ECL_EKF_AIRSPEED_FUSION
 	_ekf.getBetaInnov(innovations.beta);
 	_ekf.getHaglInnov(innovations.hagl);
 	// Not yet supported
@@ -697,8 +701,12 @@ void EKF2::PublishInnovationTestRatios(const hrt_abstime &timestamp)
 	_ekf.getFlowInnovRatio(test_ratios.flow[0]);
 	_ekf.getHeadingInnovRatio(test_ratios.heading);
 	_ekf.getMagInnovRatio(test_ratios.mag_field[0]);
+#if defined(ECL_EKF_DRAG_FUSION)
 	_ekf.getDragInnovRatio(&test_ratios.drag[0]);
+#endif // ECL_EKF_DRAG_FUSION
+#if defined(ECL_EKF_AIRSPEED_FUSION)
 	_ekf.getAirspeedInnovRatio(test_ratios.airspeed);
+#endif // ECL_EKF_AIRSPEED_FUSION
 	_ekf.getBetaInnovRatio(test_ratios.beta);
 	_ekf.getHaglInnovRatio(test_ratios.hagl);
 	// Not yet supported
@@ -721,8 +729,12 @@ void EKF2::PublishInnovationVariances(const hrt_abstime &timestamp)
 	_ekf.getFlowInnovVar(variances.flow);
 	_ekf.getHeadingInnovVar(variances.heading);
 	_ekf.getMagInnovVar(variances.mag_field);
+#if defined(ECL_EKF_DRAG_FUSION)
 	_ekf.getDragInnovVar(variances.drag);
+#endif // ECL_EKF_DRAG_FUSION
+#if defined(ECL_EKF_AIRSPEED_FUSION)
 	_ekf.getAirspeedInnovVar(variances.airspeed);
+#endif // ECL_EKF_AIRSPEED_FUSION
 	_ekf.getBetaInnovVar(variances.beta);
 	_ekf.getHaglInnovVar(variances.hagl);
 	// Not yet supported
@@ -1199,8 +1211,10 @@ void EKF2::PublishWindEstimate(const hrt_abstime &timestamp)
 
 		const Vector2f wind_vel = _ekf.getWindVelocity();
 		const Vector2f wind_vel_var = _ekf.getWindVelocityVariance();
+#if defined(ECL_EKF_AIRSPEED_FUSION)
 		_ekf.getAirspeedInnov(wind.tas_innov);
 		_ekf.getAirspeedInnovVar(wind.tas_innov_var);
+#endif // ECL_EKF_AIRSPEED_FUSION
 		_ekf.getBetaInnov(wind.beta_innov);
 		_ekf.getBetaInnovVar(wind.beta_innov_var);
 
@@ -1252,6 +1266,7 @@ float EKF2::filter_altitude_ellipsoid(float amsl_hgt)
 
 void EKF2::UpdateAirspeedSample(ekf2_timestamps_s &ekf2_timestamps)
 {
+#if defined(ECL_EKF_AIRSPEED_FUSION)
 	// EKF airspeed sample
 	airspeed_s airspeed;
 
@@ -1277,6 +1292,8 @@ void EKF2::UpdateAirspeedSample(ekf2_timestamps_s &ekf2_timestamps)
 		ekf2_timestamps.airspeed_timestamp_rel = (int16_t)((int64_t)airspeed.timestamp / 100 -
 				(int64_t)ekf2_timestamps.timestamp / 100);
 	}
+
+#endif // ECL_EKF_AIRSPEED_FUSION
 }
 
 void EKF2::UpdateAuxVelSample(ekf2_timestamps_s &ekf2_timestamps)
