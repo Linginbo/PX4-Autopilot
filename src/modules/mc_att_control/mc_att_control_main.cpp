@@ -208,7 +208,8 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 	}
 
 	/* copy quaternion setpoint to attitude setpoint topic */
-	Quatf q_sp = Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body);
+	attitude_setpoint.pitch_body += math::radians(_param_mc_psp_off.get());
+	const Quatf q_sp{Eulerf(attitude_setpoint.roll_body, attitude_setpoint.pitch_body, attitude_setpoint.yaw_body)};
 	q_sp.copyTo(attitude_setpoint.q_d);
 
 	attitude_setpoint.thrust_body[2] = -throttle_curve(math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f));

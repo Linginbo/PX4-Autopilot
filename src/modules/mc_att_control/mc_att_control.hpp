@@ -146,6 +146,8 @@ private:
 		(ParamFloat<px4::params::MC_PITCHRATE_MAX>) _param_mc_pitchrate_max,
 		(ParamFloat<px4::params::MC_YAWRATE_MAX>) _param_mc_yawrate_max,
 
+		(ParamFloat<px4::params::MC_PSP_OFF>) _param_mc_psp_off,
+
 		(ParamFloat<px4::params::MPC_MAN_Y_MAX>) _param_mpc_man_y_max,			/**< scaling factor from stick to yaw rate */
 
 		/* Stabilized mode params */

@@ -131,6 +131,8 @@ private:
 	};
 
 	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::MC_PSP_OFF>) _param_mc_psp_off,
+
 		// Position Control
 		(ParamFloat<px4::params::MPC_XY_P>)         _param_mpc_xy_p,
 		(ParamFloat<px4::params::MPC_Z_P>)          _param_mpc_z_p,

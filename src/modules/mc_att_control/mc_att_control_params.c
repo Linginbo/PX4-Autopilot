@@ -158,3 +158,19 @@ PARAM_DEFINE_FLOAT(MC_YAWRATE_MAX, 200.0f);
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_FLOAT(MC_MAN_TILT_TAU, 0.0f);
+
+/**
+ * Pitch setpoint offset (pitch in hover flight)
+ *
+ * An airframe specific offset of the pitch setpoint in degrees, the value is
+ * added to the pitch setpoint and should correspond to the pitch in
+ * hover flight .
+ *
+ * @unit deg
+ * @min -90.0
+ * @max 90.0
+ * @decimal 1
+ * @increment 0.5
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_PSP_OFF, 0.0f);
