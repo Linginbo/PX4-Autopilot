@@ -110,6 +110,7 @@ set(msg_files
 	mavlink_log.msg
 	mavlink_tunnel.msg
 	mission.msg
+	mission_checksum.msg
 	mission_result.msg
 	mount_orientation.msg
 	navigator_mission_item.msg
