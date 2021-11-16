@@ -48,7 +48,6 @@
 #include "mission.h"
 #include "navigator.h"
 
-#include <crc32.h>
 #include <string.h>
 #include <drivers/drv_hrt.h>
 #include <dataman/dataman.h>
@@ -1754,8 +1753,6 @@ Mission::check_mission_valid(bool force)
 
 		// find and store landing start marker (if available)
 		find_mission_land_start();
-
-		calculate_mission_checksums();
 	}
 }
 
@@ -1934,168 +1931,4 @@ void Mission::publish_navigator_mission_item()
 	navigator_mission_item.timestamp = hrt_absolute_time();
 
 	_navigator_mission_item_pub.publish(navigator_mission_item);
-}
-
-
-void Mission::calculate_mission_checksums()
-{
-	union {
-		uint8_t uint8_part;
-		uint8_t uint16_part;
-		float float_part;
-	} crc_part;
-
-	mission_s mission_state = {};
-	mission_stats_entry_s stats;
-	mission_checksum_s csum{};
-
-	csum.timestamp = hrt_absolute_time();
-	csum.mission_checksum = 0;
-	csum.fence_checksum = 0;
-	csum.rally_checksum = 0;
-	csum.all_checksum = 0;
-
-	bool fail = false;
-
-	dm_lock(DM_KEY_MISSION_STATE);
-
-	if (dm_read(DM_KEY_MISSION_STATE, 0, &mission_state, sizeof(mission_s)) != sizeof(mission_s)) {
-		PX4_ERR("dataman read failure");
-		fail = true;
-	}
-
-	dm_unlock(DM_KEY_MISSION_STATE);
-
-	if (fail) {
-		return;
-	}
-
-	dm_item_t dm_current = (dm_item_t)(_mission.dataman_id);
-	dm_lock(dm_current);
-
-	for (int i = 0; i < mission_state.count && !fail; i++) {
-		struct mission_item_s mission_item = {};
-		const ssize_t len = sizeof(mission_item);
-
-		if (dm_read(dm_current, i, &mission_item, len) != len) {
-			PX4_ERR("dataman read failure");
-			fail = true;
-
-		} else {
-			crc_part.uint8_part = mission_item.frame;
-			csum.mission_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint8_part), csum.mission_checksum);
-			crc_part.uint16_part = mission_item.nav_cmd;
-			csum.mission_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint16_part), csum.mission_checksum);
-			crc_part.uint8_part = mission_item.autocontinue;
-			csum.mission_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint8_part), csum.mission_checksum);
-
-			for (int j = 0; j < 4; j++) {
-				crc_part.float_part = mission_item.params[j];
-				csum.mission_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.mission_checksum);
-			}
-
-			crc_part.float_part = mission_item.lat;
-			csum.mission_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.mission_checksum);
-			crc_part.float_part = mission_item.lon;
-			csum.mission_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.mission_checksum);
-			crc_part.float_part = mission_item.params[6];
-			csum.mission_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.mission_checksum);
-		}
-	}
-
-	dm_unlock(dm_current);
-
-	if (fail) {
-		return;
-	}
-
-	csum.all_checksum = csum.mission_checksum;
-
-	dm_lock(DM_KEY_FENCE_POINTS);
-
-	if (dm_read(DM_KEY_FENCE_POINTS, 0, &stats, sizeof(mission_stats_entry_s)) != sizeof(mission_stats_entry_s)) {
-		PX4_ERR("dataman read failure");
-		fail = true;
-	}
-
-	for (size_t i = 1; i <= stats.num_items && !fail; i++) {
-		mission_fence_point_s mission_fence_point;
-		const ssize_t len = sizeof(mission_fence_point);
-
-		if (dm_read(DM_KEY_FENCE_POINTS, i, &mission_fence_point, len) != len) {
-			PX4_ERR("dataman read failure");
-			fail = true;
-
-		} else {
-			crc_part.uint8_part = mission_fence_point.frame;
-			csum.fence_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint8_part), csum.fence_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint8_part), csum.all_checksum);
-
-			crc_part.uint16_part = mission_fence_point.nav_cmd;
-			csum.fence_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint16_part), csum.fence_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint16_part), csum.all_checksum);
-
-			crc_part.float_part = mission_fence_point.lat;
-			csum.fence_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.fence_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.all_checksum);
-
-			crc_part.float_part = mission_fence_point.lon;
-			csum.fence_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.fence_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.all_checksum);
-
-			crc_part.float_part = mission_fence_point.alt;
-			csum.fence_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.fence_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.all_checksum);
-
-			crc_part.float_part = mission_fence_point.circle_radius;
-			csum.fence_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.fence_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.all_checksum);
-		}
-	}
-
-	dm_unlock(DM_KEY_FENCE_POINTS);
-
-	if (fail) {
-		return;
-	}
-
-	dm_lock(DM_KEY_SAFE_POINTS);
-
-	if (dm_read(DM_KEY_SAFE_POINTS, 0, &stats, sizeof(mission_stats_entry_s)) != sizeof(mission_stats_entry_s)) {
-		PX4_ERR("dataman read failure");
-		fail = true;
-	}
-
-	for (size_t i = 1; i <= stats.num_items && !fail; i++) {
-		mission_safe_point_s mission_safe_point;
-		const ssize_t len = sizeof(mission_safe_point);
-
-		if (dm_read(DM_KEY_SAFE_POINTS, i, &mission_safe_point, len) != len) {
-			PX4_ERR("dataman read failure");
-			fail = true;
-
-		} else {
-			crc_part.uint8_part = mission_safe_point.frame;
-			csum.rally_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint8_part), csum.rally_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.uint8_part), csum.all_checksum);
-
-			crc_part.float_part = mission_safe_point.lat;
-			csum.rally_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.rally_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.all_checksum);
-
-			crc_part.float_part = mission_safe_point.lon;
-			csum.rally_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.rally_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.all_checksum);
-
-			crc_part.float_part = mission_safe_point.alt;
-			csum.rally_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.rally_checksum);
-			csum.all_checksum = crc32part(&crc_part.uint8_part, sizeof(crc_part.float_part), csum.all_checksum);
-		}
-	}
-
-	dm_unlock(DM_KEY_SAFE_POINTS);
-
-	if (!fail) {
-		mission_checksum_pub.publish(csum);
-	}
 }
