@@ -241,30 +241,6 @@ int main()
 		}
 	}
 
-	// check print()
-	// Redirect stdout
-	TEST(freopen("testoutput.txt", "w", stdout) != NULL);
-	// write
-	Comma.print();
-	fclose(stdout);
-	// read
-	FILE *fp = fopen("testoutput.txt", "r");
-	TEST(fp != nullptr);
-	TEST(!fseek(fp, 0, SEEK_SET));
-
-	for (size_t i = 0; i < len; i++) {
-		char c = static_cast<char>(fgetc(fp));
-
-		if (c == '\n') {
-			break;
-		}
-
-		printf("%d %d %d\n", static_cast<int>(i), output[i], c);
-		TEST(c == output[i]);
-	}
-
-	TEST(!fclose(fp));
-
 	return 0;
 }
 
