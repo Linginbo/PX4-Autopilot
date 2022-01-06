@@ -122,13 +122,14 @@ set(msg_files
 	orbit_status.msg
 	parameter_update.msg
 	ping.msg
-	pps_capture.msg
 	position_controller_landing_status.msg
 	position_controller_status.msg
 	position_setpoint.msg
 	position_setpoint_triplet.msg
 	power_button_state.msg
 	power_monitor.msg
+	pps_capture.msg
+	precision_landing_status.msg
 	pwm_input.msg
 	px4io_status.msg
 	radio_status.msg

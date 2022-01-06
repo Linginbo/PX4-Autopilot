@@ -54,6 +54,7 @@ endif()
 list(APPEND flight_tasks_all
 	Auto
 	AutoFollowMe
+	AutoPrecisionLanding
 	Descend
 	Failsafe
 	ManualAcceleration
