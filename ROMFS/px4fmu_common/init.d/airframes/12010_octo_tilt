@@ -1,0 +1,84 @@
+#!/bin/sh
+#
+# @name Octo tilt
+#
+# @type Octo Coax Wide
+# @class Copter
+#
+# @output MAIN1 motor 1
+# @output MAIN2 motor 2
+# @output MAIN3 motor 3
+# @output MAIN4 motor 4
+# @output MAIN5 motor 5
+# @output MAIN6 motor 6
+# @output MAIN7 motor 7
+# @output MAIN8 motor 8
+# @output AUX1 tilt
+#
+# @board px4_fmu-v2 exclude
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+set VEHICLE_TYPE vtol
+
+param set-default CBRK_AIRSPD_CHK 162128
+
+param set-default BAT1_N_CELLS 6
+param set-default BAT1_A_PER_V 36.4
+param set-default BAT1_V_DIV 18.1
+param set-default BAT2_A_PER_V 36.4
+param set-default BAT2_V_DIV 18.1
+param set-default BAT_A_PER_V 36.4
+param set-default BAT_N_CELLS 6
+param set-default BAT_V_DIV 18.1
+
+param set-default COM_PREARM_MODE 1
+
+param set-default MC_PITCH_P 4
+param set-default MC_PITCHRATE_K 0.65
+param set-default MC_PITCHRATE_P 0.24
+param set-default MC_PITCHRATE_I 0.09
+param set-default MC_PITCHRATE_D 0.0034
+param set-default MC_PITCHRATE_MAX 180
+
+param set-default MC_ROLL_P 4
+param set-default MC_ROLLRATE_K 0.65
+param set-default MC_ROLLRATE_P 0.16
+param set-default MC_ROLLRATE_I 0.125
+param set-default MC_ROLLRATE_D 0.009
+param set-default MC_ROLLRATE_MAX 180
+
+param set-default MC_YAW_P 2
+param set-default MC_YAWRATE_K 0.7
+param set-default MC_YAWRATE_P 0.2
+param set-default MC_YAWRATE_I 0.1
+param set-default MC_YAWRATE_D 0
+
+param set-default MPC_XY_CRUISE 35
+param set-default MPC_XY_P 0.4
+param set-default MPC_XY_VEL_MAX 35
+param set-default MPC_XY_VEL_P_ACC 1.65
+
+param set-default MAV_1_CONFIG 102
+
+param set-default SENS_BOARD_ROT 6
+
+param set-default PWM_MAIN_RATE 400
+param set-default PWM_AUX_DIS1 1500
+
+param set-default VT_IDLE_PWM_MC 1100
+param set-default VT_TYPE 1
+param set-default VT_MOT_ID 12345678
+
+param set-default VT_PTCH_MIN 0 # the max forward pitch, if the forward pitch sp is higher then it will tilt the motors --> only available from v1.13 on
+param set-default VT_FWD_THRUST_EN 1
+param set-default VT_FWD_THRUST_SC 0.5
+
+set MAV_TYPE 21
+
+set MIXER octo_cox_w
+set MIXER_AUX vtol_single_tilt
+
+set PWM_OUT 12345678

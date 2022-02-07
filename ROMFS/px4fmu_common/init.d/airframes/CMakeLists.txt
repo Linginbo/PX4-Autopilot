@@ -122,6 +122,8 @@ px4_add_romfs_files(
 	12001_octo_cox
 	12002_steadidrone_mavrik
 
+	12010_octo_tilt #octo with all motors on single tilt servo
+
 	# [13000, 13999] VTOL
 	13000_generic_vtol_standard
 	13001_caipirinha_vtol
