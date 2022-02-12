@@ -270,5 +270,9 @@ else
 fi
 . ${R}etc/init.d/rc.logging
 
+
+vectornav start -d /dev/ttyUSB0
+
+
 mavlink boot_complete
 replay trystart
