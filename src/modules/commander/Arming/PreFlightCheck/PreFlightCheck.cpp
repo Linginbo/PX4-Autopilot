@@ -45,24 +45,62 @@
 
 using namespace time_literals;
 
+static constexpr unsigned MAX_SENSORS = 4;
+
 static constexpr unsigned max_mandatory_mag_count = 1;
 static constexpr unsigned max_mandatory_gyro_count = 1;
 static constexpr unsigned max_mandatory_accel_count = 1;
 static constexpr unsigned max_mandatory_baro_count = 1;
 
+perf_counter_t _preflight_0_perf{nullptr};
+perf_counter_t _preflight_1_perf{nullptr};
+perf_counter_t _preflight_2_perf{nullptr};
+perf_counter_t _preflight_3_perf{nullptr};
+perf_counter_t _preflight_4_perf{nullptr};
+perf_counter_t _preflight_5_perf{nullptr};
+perf_counter_t _preflight_6_perf{nullptr};
+perf_counter_t _preflight_7_perf{nullptr};
+perf_counter_t _preflight_8_perf{nullptr};
+perf_counter_t _preflight_9_perf{nullptr};
+perf_counter_t _preflight_a_perf{nullptr};
+perf_counter_t _preflight_b_perf{nullptr};
+
 bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status,
 				    vehicle_status_flags_s &status_flags, const vehicle_control_mode_s &control_mode,
 				    bool report_failures, const bool prearm, const hrt_abstime &time_since_boot)
 {
+
+	if (_preflight_0_perf == nullptr) {
+		_preflight_0_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 0");
+		_preflight_1_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 1");
+		_preflight_2_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 2");
+		_preflight_3_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 3");
+		_preflight_4_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 4");
+		_preflight_5_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 5");
+		_preflight_6_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 6");
+		_preflight_7_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 7");
+		_preflight_8_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 8");
+		_preflight_9_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight 9");
+		_preflight_a_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight a");
+		_preflight_b_perf = perf_alloc(PC_ELAPSED, MODULE_NAME": preflight b");
+	}
+
+
 	report_failures = (report_failures && status_flags.system_hotplug_timeout
 			   && !status_flags.calibration_enabled);
 
 	bool failed = false;
 
+	perf_begin(_preflight_a_perf);
 	failed = failed || !airframeCheck(mavlink_log_pub, status);
+	perf_end(_preflight_a_perf);
+
+	perf_begin(_preflight_b_perf);
 	failed = failed || !sdcardCheck(mavlink_log_pub, status_flags.sd_card_detected_once, report_failures);
+	perf_end(_preflight_b_perf);
 
 	/* ---- MAG ---- */
+	perf_begin(_preflight_0_perf);
 	{
 		int32_t sys_has_mag = 1;
 		param_get(param_find("SYS_HAS_MAG"), &sys_has_mag);
@@ -77,24 +115,30 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 			}
 		}
 	}
+	perf_end(_preflight_0_perf);
 
 	/* ---- ACCEL ---- */
+	perf_begin(_preflight_1_perf);
 	{
 		failed |= !sensorAvailabilityCheck(report_failures, max_mandatory_accel_count,
 						   mavlink_log_pub, status, accelerometerCheck);
 
 		// TODO: highest priority (from params)
 	}
+	perf_end(_preflight_1_perf);
 
 	/* ---- GYRO ---- */
+	perf_begin(_preflight_2_perf);
 	{
 		failed |= !sensorAvailabilityCheck(report_failures, max_mandatory_gyro_count,
 						   mavlink_log_pub, status, gyroCheck);
 
 		// TODO: highest priority (from params)
 	}
+	perf_end(_preflight_2_perf);
 
 	/* ---- BARO ---- */
+	perf_begin(_preflight_3_perf);
 	{
 		int32_t sys_has_baro = 1;
 		param_get(param_find("SYS_HAS_BARO"), &sys_has_baro);
@@ -104,16 +148,20 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 					  mavlink_log_pub, status, baroCheck));
 		}
 	}
+	perf_end(_preflight_3_perf);
 
 	/* ---- IMU CONSISTENCY ---- */
+	perf_begin(_preflight_4_perf);
 	// To be performed after the individual sensor checks have completed
 	{
 		if (!imuConsistencyCheck(mavlink_log_pub, status, report_failures)) {
 			failed = true;
 		}
 	}
+	perf_end(_preflight_4_perf);
 
 	/* ---- Distance Sensor ---- */
+	perf_begin(_preflight_5_perf);
 	{
 		int32_t sys_has_num_dist_sens = 0;
 		param_get(param_find("SYS_HAS_NUM_DIST"), &sys_has_num_dist_sens);
@@ -122,11 +170,13 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 			static_cast<void>(sensorAvailabilityCheck(report_failures, sys_has_num_dist_sens,
 					  mavlink_log_pub, status, distSensCheck));
 		}
-
 	}
+	perf_end(_preflight_5_perf);
 
 	/* ---- AIRSPEED ---- */
 	/* Perform airspeed check only if circuit breaker is not engaged and it's not a rotary wing */
+	perf_begin(_preflight_6_perf);
+
 	if (!status_flags.circuit_breaker_engaged_airspd_check &&
 	    (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING || status.is_vtol)) {
 
@@ -149,7 +199,10 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 		}
 	}
 
+	perf_end(_preflight_6_perf);
+
 	/* ---- RC CALIBRATION ---- */
+	perf_begin(_preflight_7_perf);
 	int32_t com_rc_in_mode{0};
 	param_get(param_find("COM_RC_IN_MODE"), &com_rc_in_mode);
 
@@ -179,7 +232,10 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 		}
 	}
 
+	perf_end(_preflight_7_perf);
+
 	/* ---- Navigation EKF ---- */
+	perf_begin(_preflight_8_perf);
 	// only check EKF2 data if EKF2 is selected as the estimator and GNSS checking is enabled
 	int32_t estimator_type = -1;
 
@@ -218,6 +274,10 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 		}
 	}
 
+	perf_end(_preflight_8_perf);
+
+	perf_begin(_preflight_9_perf);
+
 	/* ---- Failure Detector ---- */
 	if (!failureDetectorCheck(mavlink_log_pub, status, report_failures, prearm)) {
 		failed = true;
@@ -227,6 +287,8 @@ bool PreFlightCheck::preflightCheck(orb_advert_t *mavlink_log_pub, vehicle_statu
 	failed = failed || !modeCheck(mavlink_log_pub, report_failures, status);
 	failed = failed || !cpuResourceCheck(mavlink_log_pub, report_failures);
 	failed = failed || !parachuteCheck(mavlink_log_pub, report_failures, status_flags);
+
+	perf_end(_preflight_9_perf);
 
 	/* Report status */
 	return !failed;
@@ -240,7 +302,7 @@ bool PreFlightCheck::sensorAvailabilityCheck(const bool report_failure,
 	bool report_fail = report_failure;
 
 	/* check all sensors, but fail only for mandatory ones */
-	for (uint8_t i = 0u; i < ORB_MULTI_MAX_INSTANCES; i++) {
+	for (uint8_t i = 0u; i < MAX_SENSORS; i++) {
 		const bool is_mandatory = i < nb_mandatory_instances;
 
 		if (!sens_check(mavlink_log_pub, status, i, is_mandatory, report_fail)) {

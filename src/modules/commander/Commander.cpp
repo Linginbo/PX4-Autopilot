@@ -2038,6 +2038,8 @@ void Commander::Run()
 	const bool params_updated = _parameter_update_sub.updated();
 
 	if (params_updated) {
+		perf_begin(_param_update_perf);
+
 		// clear update
 		parameter_update_s update;
 		_parameter_update_sub.copy(&update);
@@ -2128,6 +2130,8 @@ void Commander::Run()
 					     "Yaw Airmode requires disabling the stick arm gesture");
 			}
 		}
+
+		perf_end(_param_update_perf);
 	}
 
 	/* Update OA parameter */
@@ -2149,6 +2153,8 @@ void Commander::Run()
 	}
 
 #endif // BOARD_HAS_POWER_CONTROL
+
+	perf_begin(_commander_updates_0_perf);
 
 	offboard_control_update();
 
@@ -2376,6 +2382,10 @@ void Commander::Run()
 	if (_battery_status_subs.updated()) {
 		battery_status_check();
 	}
+
+	perf_end(_commander_updates_0_perf);
+
+	perf_begin(_commander_updates_1_perf);
 
 	/* If in INIT state, try to proceed to STANDBY state */
 	if (!_status_flags.calibration_enabled && _status.arming_state == vehicle_status_s::ARMING_STATE_INIT) {
@@ -2733,6 +2743,10 @@ void Commander::Run()
 		}
 	}
 
+	perf_end(_commander_updates_1_perf);
+
+	perf_begin(_vehicle_command_perf);
+
 	/* handle commands last, as the system needs to be updated to handle them */
 	if (_vehicle_command_sub.updated()) {
 		/* got command */
@@ -2762,6 +2776,10 @@ void Commander::Run()
 			executeActionRequest(action_request);
 		}
 	}
+
+	perf_end(_vehicle_command_perf);
+
+	perf_begin(_commander_updates_2_perf);
 
 	/* Check for failure detector status */
 	if (_failure_detector.update(_status, _vehicle_control_mode)) {
@@ -2872,6 +2890,10 @@ void Commander::Run()
 		}
 	}
 
+	perf_end(_commander_updates_2_perf);
+
+	perf_begin(_commander_updates_3_perf);
+
 	// check for arming state change
 	if (_was_armed != _armed.armed) {
 		_status_changed = true;
@@ -2934,6 +2956,10 @@ void Commander::Run()
 		_failsafe_old = _status.failsafe;
 	}
 
+	perf_end(_commander_updates_3_perf);
+
+	perf_begin(_commander_updates_4_perf);
+
 	/* publish states (armed, control_mode, vehicle_status, commander_state, vehicle_status_flags, failure_detector_status) at 2 Hz or immediately when changed */
 	if (hrt_elapsed_time(&_status.timestamp) >= 500_ms || _status_changed || nav_state_changed) {
 
@@ -2982,10 +3008,13 @@ void Commander::Run()
 
 		// Evaluate current prearm status
 		if (!_armed.armed && !_status_flags.calibration_enabled) {
+			perf_begin(_preflight_check_perf);
 			bool preflight_check_res = PreFlightCheck::preflightCheck(nullptr, _status, _status_flags, _vehicle_control_mode,
 						   false, true, hrt_elapsed_time(&_boot_timestamp));
+			perf_end(_preflight_check_perf);
 
 			// skip arm authorization check until actual arming attempt
+			perf_begin(_prearm_perf);
 			PreFlightCheck::arm_requirements_t arm_req = _arm_requirements;
 			arm_req.arm_authorization = false;
 			bool prearm_check_res = PreFlightCheck::preArmCheck(nullptr, _status_flags, _vehicle_control_mode, _safety, arm_req,
@@ -2993,6 +3022,7 @@ void Commander::Run()
 
 			set_health_flags(subsystem_info_s::SUBSYSTEM_TYPE_PREARM_CHECK, true, true, (preflight_check_res
 					 && prearm_check_res), _status);
+			perf_end(_prearm_perf);
 		}
 
 		/* publish vehicle_status_flags */
@@ -3013,6 +3043,10 @@ void Commander::Run()
 		fd_status.imbalanced_prop_metric = _failure_detector.getImbalancedPropMetric();
 		_failure_detector_status_pub.publish(fd_status);
 	}
+
+	perf_end(_commander_updates_4_perf);
+
+	perf_begin(_commander_updates_5_perf);
 
 	/* play arming and battery warning tunes */
 	if (!_arm_tune_played && _armed.armed &&
@@ -3068,6 +3102,9 @@ void Commander::Run()
 		control_status_leds(_status_changed, _battery_warning);
 	}
 
+	perf_end(_commander_updates_5_perf);
+	perf_begin(_commander_updates_6_perf);
+
 	// check if the worker has finished
 	if (_worker_thread.hasResult()) {
 		int ret = _worker_thread.getResultAndReset();
@@ -3098,7 +3135,9 @@ void Commander::Run()
 
 	px4_indicate_external_reset_lockout(LockoutComponent::Commander, _armed.armed);
 
-	ScheduleDelayed(100_ms);
+	ScheduleDelayed(50_ms);
+
+	perf_end(_commander_updates_6_perf);
 
 	perf_end(_loop_perf);
 }
@@ -4430,6 +4469,18 @@ int Commander::print_status()
 {
 	PX4_INFO("arming: %s", arming_state_names[_status.arming_state]);
 	PX4_INFO("navigation: %s", nav_state_names[_status.nav_state]);
+	perf_print_counter(_loop_perf);
+	perf_print_counter(_param_update_perf);
+	perf_print_counter(_commander_updates_0_perf);
+	perf_print_counter(_commander_updates_1_perf);
+	perf_print_counter(_commander_updates_2_perf);
+	perf_print_counter(_commander_updates_3_perf);
+	perf_print_counter(_commander_updates_4_perf);
+	perf_print_counter(_commander_updates_5_perf);
+	perf_print_counter(_commander_updates_6_perf);
+	perf_print_counter(_preflight_check_perf);
+	perf_print_counter(_prearm_perf);
+	perf_print_counter(_vehicle_command_perf);
 	return 0;
 }
 

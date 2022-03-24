@@ -449,4 +449,16 @@ private:
 	orb_advert_t _mavlink_log_pub{nullptr};
 
 	perf_counter_t _loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
+
+	perf_counter_t _param_update_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": parameter update")};
+	perf_counter_t _commander_updates_0_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": updates 0")};
+	perf_counter_t _commander_updates_1_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": updates 1")};
+	perf_counter_t _commander_updates_2_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": updates 2")};
+	perf_counter_t _commander_updates_3_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": updates 3")};
+	perf_counter_t _commander_updates_4_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": updates 4")};
+	perf_counter_t _commander_updates_5_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": updates 5")};
+	perf_counter_t _commander_updates_6_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": updates 6")};
+	perf_counter_t _preflight_check_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": preflight check")};
+	perf_counter_t _prearm_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": prearm check")};
+	perf_counter_t _vehicle_command_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": vehicle command")};
 };

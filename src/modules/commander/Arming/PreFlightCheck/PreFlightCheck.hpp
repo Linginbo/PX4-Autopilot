@@ -47,6 +47,8 @@
 #include <uORB/topics/vehicle_status.h>
 #include <drivers/drv_hrt.h>
 
+#include <lib/perf/perf_counter.h>
+
 typedef bool (*sens_check_func_t)(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 				  const bool is_mandatory, bool &report_fail);
 
@@ -102,17 +104,17 @@ private:
 	static bool sensorAvailabilityCheck(const bool report_failure,
 					    const uint8_t nb_mandatory_instances, orb_advert_t *mavlink_log_pub,
 					    vehicle_status_s &status, sens_check_func_t sens_check);
-	static bool isMagRequired(uint8_t instance);
+
 	static bool magnetometerCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 				      const bool is_mandatory, bool &report_fail);
 	static bool magConsistencyCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const bool report_status);
-	static bool isAccelRequired(uint8_t instance);
+
 	static bool accelerometerCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 				       const bool is_mandatory, bool &report_fail);
-	static bool isGyroRequired(uint8_t instance);
+
 	static bool gyroCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 			      const bool is_mandatory, bool &report_fail);
-	static bool isBaroRequired(uint8_t instance);
+
 	static bool baroCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 			      const bool is_mandatory, bool &report_fail);
 	static bool distSensCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
@@ -138,4 +140,6 @@ private:
 	static bool sdcardCheck(orb_advert_t *mavlink_log_pub, bool &sd_card_detected_once, const bool report_fail);
 	static bool parachuteCheck(orb_advert_t *mavlink_log_pub, const bool report_fail,
 				   const vehicle_status_flags_s &status_flags);
+
+
 };

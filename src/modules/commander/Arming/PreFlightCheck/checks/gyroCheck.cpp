@@ -44,45 +44,48 @@
 
 using namespace time_literals;
 
-bool PreFlightCheck::isGyroRequired(const uint8_t instance)
+static bool isGyroRequired(uint32_t device_id)
 {
-	uORB::SubscriptionData<sensor_gyro_s> gyro{ORB_ID(sensor_gyro), instance};
-	const uint32_t device_id = static_cast<uint32_t>(gyro.get().device_id);
-
-	bool is_used_by_nav = false;
-
 	for (uint8_t i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
 		uORB::SubscriptionData<estimator_status_s> estimator_status_sub{ORB_ID(estimator_status), i};
 
-		if (device_id > 0 && estimator_status_sub.get().gyro_device_id == device_id) {
-			is_used_by_nav = true;
+		if (!estimator_status_sub.advertised()) {
 			break;
+		}
+
+		if (device_id > 0 && estimator_status_sub.get().gyro_device_id == device_id) {
+			return true;
 		}
 	}
 
-	return is_used_by_nav;
+	return false;
 }
 
 bool PreFlightCheck::gyroCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 			       const bool is_mandatory, bool &report_fail)
 {
-	const bool exists = (orb_exists(ORB_ID(sensor_gyro), instance) == PX4_OK);
-	const bool is_required = is_mandatory || isGyroRequired(instance);
+	uORB::SubscriptionData<sensor_gyro_s> gyro_sub{ORB_ID(sensor_gyro), instance};
+
+	const bool exists = gyro_sub.advertised();
+	bool is_required = is_mandatory;
 
 	bool is_valid = false;
 	bool is_calibration_valid = false;
 
 	if (exists) {
-		uORB::SubscriptionData<sensor_gyro_s> gyro{ORB_ID(sensor_gyro), instance};
 
-		is_valid = (gyro.get().device_id != 0) && (gyro.get().timestamp != 0)
-			   && (hrt_elapsed_time(&gyro.get().timestamp) < 1_s);
+		is_valid = (gyro_sub.get().device_id != 0) && (gyro_sub.get().timestamp != 0)
+			   && (hrt_elapsed_time(&gyro_sub.get().timestamp) < 1_s);
 
 		if (status.hil_state == vehicle_status_s::HIL_STATE_ON) {
 			is_calibration_valid = true;
 
-		} else {
-			is_calibration_valid = (calibration::FindCurrentCalibrationIndex("GYRO", gyro.get().device_id) >= 0);
+		} else if (is_valid) {
+			is_calibration_valid = (calibration::FindCurrentCalibrationIndex("GYRO", gyro_sub.get().device_id) >= 0);
+
+			if (!is_required && isGyroRequired(gyro_sub.get().device_id)) {
+				is_required = true;
+			}
 		}
 	}
 

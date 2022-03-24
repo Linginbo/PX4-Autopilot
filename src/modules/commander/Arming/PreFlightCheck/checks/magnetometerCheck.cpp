@@ -44,46 +44,48 @@
 
 using namespace time_literals;
 
-bool PreFlightCheck::isMagRequired(const uint8_t instance)
+static bool isMagRequired(uint32_t device_id)
 {
-	uORB::SubscriptionData<sensor_mag_s> magnetometer{ORB_ID(sensor_mag), instance};
-	const uint32_t device_id = static_cast<uint32_t>(magnetometer.get().device_id);
-
-	bool is_used_by_nav = false;
-
 	for (uint8_t i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
 		uORB::SubscriptionData<estimator_status_s> estimator_status_sub{ORB_ID(estimator_status), i};
 
-		if (device_id > 0 && estimator_status_sub.get().mag_device_id == device_id) {
-			is_used_by_nav = true;;
+		if (!estimator_status_sub.advertised()) {
 			break;
+		}
+
+		if (device_id > 0 && estimator_status_sub.get().mag_device_id == device_id) {
+			return true;
 		}
 	}
 
-	return is_used_by_nav;
+	return false;
 }
 
 bool PreFlightCheck::magnetometerCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 				       const bool is_mandatory, bool &report_fail)
 {
-	const bool exists = (orb_exists(ORB_ID(sensor_mag), instance) == PX4_OK);
-	const bool is_required = is_mandatory || isMagRequired(instance);
+	uORB::SubscriptionData<sensor_mag_s> magnetometer_sub{ORB_ID(sensor_mag), instance};
+
+	const bool exists = magnetometer_sub.advertised();
+	bool is_required = is_mandatory;
 
 	bool is_valid = false;
 	bool is_calibration_valid = false;
 	bool is_mag_fault = false;
 
 	if (exists) {
-		uORB::SubscriptionData<sensor_mag_s> magnetometer{ORB_ID(sensor_mag), instance};
-
-		const sensor_mag_s &mag_data = magnetometer.get();
+		const sensor_mag_s &mag_data = magnetometer_sub.get();
 		is_valid = (mag_data.device_id != 0) && (mag_data.timestamp != 0) && (hrt_elapsed_time(&mag_data.timestamp) < 1_s);
 
 		if (status.hil_state == vehicle_status_s::HIL_STATE_ON) {
 			is_calibration_valid = true;
 
-		} else {
+		} else if (is_valid) {
 			is_calibration_valid = (calibration::FindCurrentCalibrationIndex("MAG", mag_data.device_id) >= 0);
+
+			if (!is_required && isMagRequired(mag_data.device_id)) {
+				is_required = true;
+			}
 		}
 
 		for (uint8_t i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {

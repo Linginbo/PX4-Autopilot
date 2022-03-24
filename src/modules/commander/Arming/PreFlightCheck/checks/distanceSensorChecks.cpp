@@ -45,11 +45,12 @@ using namespace time_literals;
 bool PreFlightCheck::distSensCheck(orb_advert_t *mavlink_log_pub, vehicle_status_s &status, const uint8_t instance,
 				   const bool is_mandatory, bool &report_fail)
 {
-	const bool exists = (orb_exists(ORB_ID(distance_sensor), instance) == PX4_OK);
+	uORB::SubscriptionData<distance_sensor_s> dist_sens_sub{ORB_ID(distance_sensor), instance};
+
+	const bool exists = dist_sens_sub.advertised();
 	bool valid = false;
 
 	if (exists) {
-		uORB::SubscriptionData<distance_sensor_s> dist_sens_sub{ORB_ID(distance_sensor), instance};
 		dist_sens_sub.update();
 		const distance_sensor_s &dist_sens_data = dist_sens_sub.get();
 
