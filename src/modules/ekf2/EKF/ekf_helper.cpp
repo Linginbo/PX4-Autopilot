@@ -1770,7 +1770,7 @@ void Ekf::runYawEKFGSF()
 {
 	float TAS = 0.f;
 
-	if (_control_status.flags.fixed_wing) {
+	if (_control_status.flags.fixed_wing && _control_status.flags.in_air) {
 		if (isTimedOut(_airspeed_sample_delayed.time_us, 1000000)) {
 			TAS = _params.EKFGSF_tas_default;
 
@@ -1779,8 +1779,10 @@ void Ekf::runYawEKFGSF()
 		}
 	}
 
+	const bool run_yaw_estimator = _control_status.flags.in_air || !_control_status.flags.vehicle_at_rest;
 	const Vector3f imu_gyro_bias = getGyroBias();
-	_yawEstimator.update(_imu_sample_delayed, _control_status.flags.in_air, TAS, imu_gyro_bias);
+
+	_yawEstimator.update(_imu_sample_delayed, run_yaw_estimator, TAS, imu_gyro_bias);
 
 	// basic sanity check on GPS velocity data
 	if (_gps_data_ready && _gps_sample_delayed.vacc > FLT_EPSILON &&
