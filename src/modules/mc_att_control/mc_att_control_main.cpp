@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2018 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -105,6 +105,20 @@ MulticopterAttitudeControl::throttle_curve(float throttle_stick_input)
 {
 	const float throttle_min = _landed ? 0.0f : _param_mpc_manthr_min.get();
 
+	{
+		hover_thrust_estimate_s hte;
+
+		if (_hover_thrust_estimate_sub.update(&hte)) {
+			if (hte.valid) {
+				_hover_thrust = hte.hover_thrust;
+			}
+		}
+	}
+
+	if (!PX4_ISFINITE(_hover_thrust)) {
+		_hover_thrust = _param_mpc_thr_hover.get();
+	}
+
 	// throttle_stick_input is in range [0, 1]
 	switch (_param_mpc_thr_curve.get()) {
 	case 1: // no rescaling to hover throttle
@@ -113,7 +127,7 @@ MulticopterAttitudeControl::throttle_curve(float throttle_stick_input)
 	default: // 0 or other: rescale to hover throttle at 0.5 stick
 		return math::gradual3(throttle_stick_input,
 				      0.f, .5f, 1.f,
-				      throttle_min, _param_mpc_thr_hover.get(), _param_mpc_thr_max.get());
+				      throttle_min, _hover_thrust, _param_mpc_thr_max.get());
 	}
 }
 
