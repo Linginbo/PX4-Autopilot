@@ -167,8 +167,8 @@ private:
 	bool set_home_position();
 	bool set_home_position_alt_only();
 	void set_in_air_home_position();
-	void fillLocalHomePos(home_position_s &home, const vehicle_local_position_s &lpos) const;
-	void fillLocalHomePos(home_position_s &home, float x, float y, float z, float heading) const;
+	void fillLocalHomePos(home_position_s &home, const vehicle_local_position_s &lpos, const vehicle_attitude_s &att) const;
+	void fillLocalHomePos(home_position_s &home, float x, float y, float z, float roll, float pitch, float yaw) const;
 	void fillGlobalHomePos(home_position_s &home, const vehicle_global_position_s &gpos) const;
 	void fillGlobalHomePos(home_position_s &home, double lat, double lon, float alt) const;
 	void setHomePosValid();

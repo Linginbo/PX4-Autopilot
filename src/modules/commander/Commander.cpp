@@ -1113,6 +1113,10 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					}
 
 				} else {
+					float roll = matrix::wrap_2pi(math::radians(cmd.param2));
+					roll = PX4_ISFINITE(roll) ? roll : 0.0f;
+					float pitch = matrix::wrap_2pi(math::radians(cmd.param3));
+					pitch = PX4_ISFINITE(pitch) ? pitch : 0.0f;
 					float yaw = matrix::wrap_2pi(math::radians(cmd.param4));
 					yaw = PX4_ISFINITE(yaw) ? yaw : (float)NAN;
 					const double lat = cmd.param5;
@@ -1137,7 +1141,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 							float home_y;
 							ref_pos.project(lat, lon, home_x, home_y);
 							const float home_z = -(alt - local_pos.ref_alt);
-							fillLocalHomePos(home, home_x, home_y, home_z, yaw);
+							fillLocalHomePos(home, home_x, home_y, home_z, roll, pitch, yaw);
 
 							/* mark home position as set */
 							_status_flags.home_position_valid = _home_pub.update(home);
@@ -1894,7 +1898,10 @@ Commander::set_home_position()
 		const vehicle_local_position_s &lpos = _local_position_sub.get();
 		_heading_reset_counter = lpos.heading_reset_counter; // TODO: should not be here
 
-		fillLocalHomePos(home, lpos);
+		vehicle_attitude_s att{};
+		_vehicle_attitude_sub.copy(&att);
+
+		fillLocalHomePos(home, lpos, att);
 		updated = true;
 	}
 
@@ -2000,7 +2007,7 @@ Commander::set_in_air_home_position()
 			ref_pos.project(home.lat, home.lon, home_x, home_y);
 
 			const float home_z = -(home.alt - lpos.ref_alt);
-			fillLocalHomePos(home, home_x, home_y, home_z, NAN);
+			fillLocalHomePos(home, home_x, home_y, home_z, NAN, NAN, NAN);
 
 			home.timestamp = hrt_absolute_time();
 			_home_pub.update(home);
@@ -2016,20 +2023,26 @@ Commander::set_in_air_home_position()
 }
 
 void
-Commander::fillLocalHomePos(home_position_s &home, const vehicle_local_position_s &lpos) const
+Commander::fillLocalHomePos(home_position_s &home, const vehicle_local_position_s &lpos,
+			    const vehicle_attitude_s &attitude) const
 {
-	fillLocalHomePos(home, lpos.x, lpos.y, lpos.z, lpos.heading);
+
+	matrix::Quatf q(attitude.q);
+	matrix::Eulerf euler(q);
+	fillLocalHomePos(home, lpos.x, lpos.y, lpos.z, euler(0), euler(1), euler(2));
 }
 
 void
-Commander::fillLocalHomePos(home_position_s &home, float x, float y, float z, float heading) const
+Commander::fillLocalHomePos(home_position_s &home, float x, float y, float z, float roll, float pitch, float yaw) const
 {
 	home.x = x;
 	home.y = y;
 	home.z = z;
 	home.valid_lpos = true;
 
-	home.yaw = heading;
+	home.roll = roll;
+	home.pitch = pitch;
+	home.yaw = yaw;
 }
 
 void Commander::fillGlobalHomePos(home_position_s &home, const vehicle_global_position_s &gpos) const
