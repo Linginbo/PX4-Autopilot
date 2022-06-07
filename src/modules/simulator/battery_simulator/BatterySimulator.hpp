@@ -74,13 +74,12 @@ private:
 	uORB::Publication<battery_status_s> _battery_pub{ORB_ID(battery_status)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
-	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
+	uORB::SubscriptionSelection<&vehicle_status_s::arming_state> _vehicle_status_arming_state_sub{ORB_ID(vehicle_status)};
 
 	Battery _battery;
 
 	uint64_t _last_integration_us{0};
 	float _battery_percentage{1.f};
-	bool _armed{false};
 
 	perf_counter_t	_loop_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")};
 
