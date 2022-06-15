@@ -111,7 +111,7 @@ private:
 	systemlib::Hysteresis _stick_arm_hysteresis{false};
 	systemlib::Hysteresis _stick_disarm_hysteresis{false};
 	systemlib::Hysteresis _stick_kill_hysteresis{false};
-	systemlib::Hysteresis _button_hysteresis{false};
+	systemlib::Hysteresis _button_arm_hysteresis{false};
 
 	ManualControlSelector _selector;
 	bool _published_invalid_once{false};
