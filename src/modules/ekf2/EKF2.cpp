@@ -145,8 +145,6 @@ EKF2::EKF2(bool multi_mode, const px4::wq_config_t &config, bool replay_mode):
 	_param_ekf2_ev_pos_y(_params->ev_pos_body(1)),
 	_param_ekf2_ev_pos_z(_params->ev_pos_body(2)),
 	_param_ekf2_arsp_thr(_params->arsp_thr),
-	_param_ekf2_tau_vel(_params->vel_Tau),
-	_param_ekf2_tau_pos(_params->pos_Tau),
 	_param_ekf2_gbias_init(_params->switch_on_gyro_bias),
 	_param_ekf2_abias_init(_params->switch_on_accel_bias),
 	_param_ekf2_angerr_init(_params->initial_tilt_err),
@@ -247,8 +245,8 @@ bool EKF2::multi_init(int imu, int mag)
 
 int EKF2::print_status()
 {
-	PX4_INFO_RAW("ekf2:%d EKF dt: %.4fs, IMU dt: %.4fs, attitude: %d, local position: %d, global position: %d\n",
-		     _instance, (double)_ekf.get_dt_ekf_avg(), (double)_ekf.get_dt_imu_avg(), _ekf.attitude_valid(),
+	PX4_INFO_RAW("ekf2:%d EKF dt: %.4fs, attitude: %d, local position: %d, global position: %d\n",
+		     _instance, (double)_ekf.get_dt_ekf_avg(), _ekf.attitude_valid(),
 		     _ekf.local_position_is_valid(), _ekf.global_position_is_valid());
 
 	perf_print_counter(_ecl_ekf_update_perf);
@@ -291,6 +289,13 @@ void EKF2::Run()
 		VerifyParams();
 
 		_ekf.set_min_required_gps_health_time(_param_ekf2_req_gps_h.get() * 1_s);
+
+		const matrix::Vector3f imu_pos_body(_param_ekf2_imu_pos_x.get(),
+						    _param_ekf2_imu_pos_y.get(),
+						    _param_ekf2_imu_pos_z.get());
+		_ekf.output_predictor().set_imu_offset(imu_pos_body);
+		_ekf.output_predictor().set_pos_correction_tc(_param_ekf2_tau_pos.get());
+		_ekf.output_predictor().set_vel_correction_tc(_param_ekf2_tau_vel.get());
 
 		// The airspeed scale factor correcton is only available via parameter as used by the airspeed module
 		param_t param_aspd_scale = param_find("ASPD_SCALE_1");
@@ -604,7 +609,7 @@ void EKF2::Run()
 			perf_set_elapsed(_ecl_ekf_update_full_perf, hrt_elapsed_time(&ekf_update_start));
 
 			PublishLocalPosition(now);
-			PublishOdometry(now);
+			PublishOdometry(now, imu_sample_new);
 			PublishGlobalPosition(now);
 			PublishWindEstimate(now);
 
@@ -758,8 +763,7 @@ void EKF2::PublishAttitude(const hrt_abstime &timestamp)
 		// generate vehicle attitude quaternion data
 		vehicle_attitude_s att;
 		att.timestamp_sample = timestamp;
-		const Quatf q{_ekf.calculate_quaternion()};
-		q.copyTo(att.q);
+		_ekf.getQuaternion().copyTo(att.q);
 
 		_ekf.get_quat_reset(&att.delta_q_reset[0], &att.quat_reset_counter);
 		att.timestamp = _replay_mode ? timestamp : hrt_absolute_time();
@@ -864,7 +868,7 @@ void EKF2::PublishEventFlags(const hrt_abstime &timestamp)
 
 	if (information_event_updated || warning_event_updated) {
 		estimator_event_flags_s event_flags{};
-		event_flags.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+		event_flags.timestamp_sample = _ekf.time_delayed_us();
 
 		event_flags.information_event_changes           = _filter_information_event_changes;
 		event_flags.gps_checks_passed                   = _ekf.information_event_flags().gps_checks_passed;
@@ -997,7 +1001,7 @@ void EKF2::PublishInnovations(const hrt_abstime &timestamp)
 {
 	// publish estimator innovation data
 	estimator_innovations_s innovations{};
-	innovations.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+	innovations.timestamp_sample = _ekf.time_delayed_us();
 	_ekf.getGpsVelPosInnov(innovations.gps_hvel, innovations.gps_vvel, innovations.gps_hpos, innovations.gps_vpos);
 	_ekf.getEvVelPosInnov(innovations.ev_hvel, innovations.ev_vvel, innovations.ev_hpos, innovations.ev_vpos);
 	_ekf.getBaroHgtInnov(innovations.baro_vpos);
@@ -1030,7 +1034,7 @@ void EKF2::PublishInnovations(const hrt_abstime &timestamp)
 		_preflt_checker.setUsingRngHgtAiding(_ekf.control_status_flags().rng_hgt);
 		_preflt_checker.setUsingEvHgtAiding(_ekf.control_status_flags().ev_hgt);
 
-		_preflt_checker.update(_ekf.get_imu_sample_delayed().delta_ang_dt, innovations);
+		_preflt_checker.update(_ekf.get_dt_ekf_avg(), innovations);
 	}
 }
 
@@ -1038,7 +1042,7 @@ void EKF2::PublishInnovationTestRatios(const hrt_abstime &timestamp)
 {
 	// publish estimator innovation test ratio data
 	estimator_innovations_s test_ratios{};
-	test_ratios.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+	test_ratios.timestamp_sample = _ekf.time_delayed_us();
 	_ekf.getGpsVelPosInnovRatio(test_ratios.gps_hvel[0], test_ratios.gps_vvel, test_ratios.gps_hpos[0],
 				    test_ratios.gps_vpos);
 	_ekf.getEvVelPosInnovRatio(test_ratios.ev_hvel[0], test_ratios.ev_vvel, test_ratios.ev_hpos[0], test_ratios.ev_vpos);
@@ -1064,7 +1068,7 @@ void EKF2::PublishInnovationVariances(const hrt_abstime &timestamp)
 {
 	// publish estimator innovation variance data
 	estimator_innovations_s variances{};
-	variances.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+	variances.timestamp_sample = _ekf.time_delayed_us();
 	_ekf.getGpsVelPosInnovVar(variances.gps_hvel, variances.gps_vvel, variances.gps_hpos, variances.gps_vpos);
 	_ekf.getEvVelPosInnovVar(variances.ev_hvel, variances.ev_vvel, variances.ev_hpos, variances.ev_vpos);
 	_ekf.getBaroHgtInnovVar(variances.baro_vpos);
@@ -1187,7 +1191,7 @@ void EKF2::PublishLocalPosition(const hrt_abstime &timestamp)
 	_local_position_pub.publish(lpos);
 }
 
-void EKF2::PublishOdometry(const hrt_abstime &timestamp)
+void EKF2::PublishOdometry(const hrt_abstime &timestamp, const imuSample &imu_sample)
 {
 	// generate vehicle odometry data
 	vehicle_odometry_s odom;
@@ -1205,7 +1209,7 @@ void EKF2::PublishOdometry(const hrt_abstime &timestamp)
 	_ekf.getVelocity().copyTo(odom.velocity);
 
 	// angular_velocity
-	const Vector3f rates{_ekf.get_imu_sample_newest().delta_ang / _ekf.get_imu_sample_newest().delta_ang_dt};
+	const Vector3f rates{imu_sample.delta_ang / imu_sample.delta_ang_dt};
 	const Vector3f angular_velocity = rates - _ekf.getGyroBias();
 	angular_velocity.copyTo(odom.angular_velocity);
 
@@ -1280,7 +1284,7 @@ void EKF2::PublishSensorBias(const hrt_abstime &timestamp)
 	    || (timestamp >= _last_sensor_bias_published + 1_s)) {
 
 		estimator_sensor_bias_s bias{};
-		bias.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+		bias.timestamp_sample = _ekf.time_delayed_us();
 
 		// take device ids from sensor_selection_s if not using specific vehicle_imu_s
 		if (_device_id_gyro != 0) {
@@ -1324,7 +1328,7 @@ void EKF2::PublishStates(const hrt_abstime &timestamp)
 {
 	// publish estimator states
 	estimator_states_s states;
-	states.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+	states.timestamp_sample = _ekf.time_delayed_us();
 	states.n_states = Ekf::_k_num_states;
 	_ekf.getStateAtFusionHorizonAsVector().copyTo(states.states);
 	_ekf.covariances_diagonal().copyTo(states.covariances);
@@ -1335,7 +1339,7 @@ void EKF2::PublishStates(const hrt_abstime &timestamp)
 void EKF2::PublishStatus(const hrt_abstime &timestamp)
 {
 	estimator_status_s status{};
-	status.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+	status.timestamp_sample = _ekf.time_delayed_us();
 
 	_ekf.getOutputTrackingError().copyTo(status.output_tracking_error);
 
@@ -1411,7 +1415,7 @@ void EKF2::PublishStatusFlags(const hrt_abstime &timestamp)
 
 	if (update) {
 		estimator_status_flags_s status_flags{};
-		status_flags.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+		status_flags.timestamp_sample = _ekf.time_delayed_us();
 
 		status_flags.control_status_changes   = _filter_control_status_changes;
 		status_flags.cs_tilt_align            = _ekf.control_status_flags().tilt_align;
@@ -1501,7 +1505,7 @@ void EKF2::PublishYawEstimatorStatus(const hrt_abstime &timestamp)
 			       yaw_est_test_data.weight)) {
 
 		yaw_est_test_data.yaw_composite_valid = _ekf.isYawEmergencyEstimateAvailable();
-		yaw_est_test_data.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+		yaw_est_test_data.timestamp_sample = _ekf.time_delayed_us();
 		yaw_est_test_data.timestamp = _replay_mode ? timestamp : hrt_absolute_time();
 
 		_yaw_est_pub.publish(yaw_est_test_data);
@@ -1513,7 +1517,7 @@ void EKF2::PublishWindEstimate(const hrt_abstime &timestamp)
 	if (_ekf.get_wind_status()) {
 		// Publish wind estimate only if ekf declares them valid
 		wind_s wind{};
-		wind.timestamp_sample = _ekf.get_imu_sample_delayed().time_us;
+		wind.timestamp_sample = _ekf.time_delayed_us();
 
 		const Vector2f wind_vel = _ekf.getWindVelocity();
 		const Vector2f wind_vel_var = _ekf.getWindVelocityVariance();
