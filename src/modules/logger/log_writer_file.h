@@ -163,7 +163,8 @@ private:
 	class LogFileBuffer
 	{
 	public:
-		LogFileBuffer(size_t log_buffer_size, perf_counter_t perf_write, perf_counter_t perf_fsync);
+		LogFileBuffer(size_t log_buffer_desired_size, size_t log_buffer_min_size,
+			      perf_counter_t perf_write, perf_counter_t perf_fsync);
 
 		~LogFileBuffer();
 
@@ -194,7 +195,8 @@ private:
 
 		bool _should_run = false;
 	private:
-		const size_t _buffer_size;
+		size_t _buffer_size;
+		const size_t _buffer_size_min;
 		int	_fd = -1;
 		uint8_t *_buffer = nullptr;
 		size_t _head = 0; ///< next position to write to
