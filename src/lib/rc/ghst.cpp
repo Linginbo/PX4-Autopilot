@@ -61,7 +61,7 @@
 #include "spektrum_rssi.h"
 
 #include "ghst.hpp"
-#include "common_rc.h"
+#include "crc8.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
@@ -79,7 +79,7 @@ enum class ghst_parser_state_t : uint8_t {
 // only RSSI frame contains value of RSSI, if it is not received, send last received RSSI
 static int8_t ghst_rssi = -1;
 
-static ghst_frame_t &ghst_frame = rc_decode_buf.ghst_frame;
+static ghst_frame_t ghst_frame;
 static uint32_t current_frame_position = 0U;
 static ghst_parser_state_t parser_state = ghst_parser_state_t::unsynced;
 

@@ -1,7 +1,5 @@
 
-#include "common_rc.h"
-
-__EXPORT rc_decode_buf_t rc_decode_buf;
+#include "crc8.h"
 
 uint8_t crc8_dvb_s2(uint8_t crc, uint8_t a)
 {

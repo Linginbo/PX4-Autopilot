@@ -38,7 +38,7 @@ add_library(rc
 	sumd.cpp
 	sbus.cpp
 	dsm.cpp
-	common_rc.cpp
+	crc8.cpp
 )
 target_compile_options(rc
 	PRIVATE

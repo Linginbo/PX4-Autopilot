@@ -1,0 +1,7 @@
+module_name: RC CRSF input driver
+serial_config:
+    - command: rc_crsf start -d ${SERIAL_DEV}
+      port_config_param:
+        name: RC_CRSF_CONFIG
+        group: Serial
+        default: RC
