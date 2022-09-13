@@ -115,6 +115,15 @@ public:
 			_time_last_in_air = _imu_sample_delayed.time_us;
 		}
 
+		if (_control_status.flags.in_air != in_air) {
+			// reset filtered innovation (for preflight checks)
+			for (auto& filter : _vel_pos_innov_lpf) {
+				filter.reset(0.f);
+			}
+
+			_heading_innov_lpf.reset(0.f);
+		}
+
 		_control_status.flags.in_air = in_air;
 	}
 
@@ -270,6 +279,14 @@ public:
 	float gps_vertical_position_drift_rate_m_s() const { return _gps_vertical_position_drift_rate_m_s; }
 	float gps_filtered_horizontal_velocity_m_s() const { return _gps_filtered_horizontal_velocity_m_s; }
 
+	float filteredHorizontalVelocityInnovation() const { return math::max(_vel_pos_innov_lpf[0].getState(), _vel_pos_innov_lpf[1].getState()); }
+	float filteredVerticalVelocityInnovation() const { return _vel_pos_innov_lpf[2].getState(); }
+
+	float filteredHorizontalPositionInnovation() const { return math::max(_vel_pos_innov_lpf[3].getState(), _vel_pos_innov_lpf[4].getState()); }
+	float filteredVerticalPositionInnovation() const { return _vel_pos_innov_lpf[5].getState(); }
+
+	float filteredHeadingInnovation() const { return _heading_innov_lpf.getState(); }
+
 protected:
 
 	EstimatorInterface() = default;
@@ -400,6 +417,12 @@ protected:
 	// state logic becasue they will be cleared externally after being read.
 	warning_event_status_u _warning_events{};
 	information_event_status_u _information_events{};
+
+	// Preflight low pass filter time constant inverse (1/sec)
+	static constexpr float INNOV_LPF_TAU_INV = 0.2f;
+
+	AlphaFilter<float> _vel_pos_innov_lpf[6]{{INNOV_LPF_TAU_INV}, {INNOV_LPF_TAU_INV}, {INNOV_LPF_TAU_INV}, {INNOV_LPF_TAU_INV}, {INNOV_LPF_TAU_INV}, {INNOV_LPF_TAU_INV}}; ///< filtered velocity innovations (m/s)
+	AlphaFilter<float> _heading_innov_lpf{{INNOV_LPF_TAU_INV}}; ///< filtered heading innovations (rad)
 
 private:
 

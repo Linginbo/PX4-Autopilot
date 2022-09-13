@@ -131,33 +131,47 @@ void Ekf::updateHorizontalPositionAidSrcStatus(const uint64_t &time_us, const Ve
 
 void Ekf::fuseVelocity(estimator_aid_source2d_s &aid_src)
 {
-	if (aid_src.fusion_enabled && !aid_src.innovation_rejected) {
-		// vx, vy
-		if (fuseVelPosHeight(aid_src.innovation[0], aid_src.innovation_variance[0], 0)
-		    && fuseVelPosHeight(aid_src.innovation[1], aid_src.innovation_variance[1], 1)
-		   ) {
-			aid_src.fused = true;
-			aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+	if (aid_src.fusion_enabled) {
+		// filtered innovation for preflight checks
+		for (int i = 0; i < 2; i++) {
+			_vel_pos_innov_lpf[i].update(aid_src.innovation[i]);
+		}
 
-		} else {
-			aid_src.fused = false;
+		if (!aid_src.innovation_rejected) {
+			// vx, vy
+			if (fuseVelPosHeight(aid_src.innovation[0], aid_src.innovation_variance[0], 0)
+			&& fuseVelPosHeight(aid_src.innovation[1], aid_src.innovation_variance[1], 1)
+			) {
+				aid_src.fused = true;
+				aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+
+			} else {
+				aid_src.fused = false;
+			}
 		}
 	}
 }
 
 void Ekf::fuseVelocity(estimator_aid_source3d_s &aid_src)
 {
-	if (aid_src.fusion_enabled && !aid_src.innovation_rejected) {
-		// vx, vy, vz
-		if (fuseVelPosHeight(aid_src.innovation[0], aid_src.innovation_variance[0], 0)
-		    && fuseVelPosHeight(aid_src.innovation[1], aid_src.innovation_variance[1], 1)
-		    && fuseVelPosHeight(aid_src.innovation[2], aid_src.innovation_variance[2], 2)
-		   ) {
-			aid_src.fused = true;
-			aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+	if (aid_src.fusion_enabled) {
+		// filtered innovation for preflight checks
+		for (int i = 0; i < 3; i++) {
+			_vel_pos_innov_lpf[i].update(aid_src.innovation[i]);
+		}
 
-		} else {
-			aid_src.fused = false;
+		if (!aid_src.innovation_rejected) {
+			// vx, vy, vz
+			if (fuseVelPosHeight(aid_src.innovation[0], aid_src.innovation_variance[0], 0)
+			&& fuseVelPosHeight(aid_src.innovation[1], aid_src.innovation_variance[1], 1)
+			&& fuseVelPosHeight(aid_src.innovation[2], aid_src.innovation_variance[2], 2)
+			) {
+				aid_src.fused = true;
+				aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+
+			} else {
+				aid_src.fused = false;
+			}
 		}
 	}
 }
@@ -165,15 +179,22 @@ void Ekf::fuseVelocity(estimator_aid_source3d_s &aid_src)
 void Ekf::fuseHorizontalPosition(estimator_aid_source2d_s &aid_src)
 {
 	// x & y
-	if (aid_src.fusion_enabled && !aid_src.innovation_rejected) {
-		if (fuseVelPosHeight(aid_src.innovation[0], aid_src.innovation_variance[0], 3)
-		    && fuseVelPosHeight(aid_src.innovation[1], aid_src.innovation_variance[1], 4)
-		   ) {
-			aid_src.fused = true;
-			aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+	if (aid_src.fusion_enabled) {
+		// filtered innovation for preflight checks
+		for (int i = 0; i < 2; i++) {
+			_vel_pos_innov_lpf[3+i].update(aid_src.innovation[i]);
+		}
 
-		} else {
-			aid_src.fused = false;
+		if (!aid_src.innovation_rejected) {
+			if (fuseVelPosHeight(aid_src.innovation[0], aid_src.innovation_variance[0], 3)
+			&& fuseVelPosHeight(aid_src.innovation[1], aid_src.innovation_variance[1], 4)
+			) {
+				aid_src.fused = true;
+				aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+
+			} else {
+				aid_src.fused = false;
+			}
 		}
 	}
 }
@@ -181,10 +202,15 @@ void Ekf::fuseHorizontalPosition(estimator_aid_source2d_s &aid_src)
 void Ekf::fuseVerticalPosition(estimator_aid_source1d_s &aid_src)
 {
 	// z
-	if (aid_src.fusion_enabled && !aid_src.innovation_rejected) {
-		if (fuseVelPosHeight(aid_src.innovation, aid_src.innovation_variance, 5)) {
-			aid_src.fused = true;
-			aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+	if (aid_src.fusion_enabled) {
+		// filtered innovation for preflight checks
+		_vel_pos_innov_lpf[5].update(aid_src.innovation);
+
+		if (!aid_src.innovation_rejected) {
+			if (fuseVelPosHeight(aid_src.innovation, aid_src.innovation_variance, 5)) {
+				aid_src.fused = true;
+				aid_src.time_last_fuse = _imu_sample_delayed.time_us;
+			}
 		}
 	}
 }

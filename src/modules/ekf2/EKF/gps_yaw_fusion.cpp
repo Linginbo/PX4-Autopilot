@@ -66,6 +66,9 @@ void Ekf::fuseGpsYaw(const gpsSample& gps_sample)
 	// wrap the innovation to the interval between +-pi
 	const float heading_innov = wrap_pi(predicted_hdg - measured_hdg);
 
+	// filtered innovation for preflight checks
+	_heading_innov_lpf.update(heading_innov);
+
 	// using magnetic heading process noise
 	// TODO extend interface to use yaw uncertainty provided by GPS if available
 	const float R_YAW = sq(fmaxf(_params.gps_heading_noise, 1.0e-2f));

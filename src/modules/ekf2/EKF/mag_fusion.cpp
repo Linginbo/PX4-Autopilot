@@ -225,6 +225,9 @@ bool Ekf::fuseMag(const Vector3f &mag, estimator_aid_source3d_s &aid_src_mag, bo
 // update quaternion states and covariances using the yaw innovation and yaw observation variance
 bool Ekf::fuseYaw(const float innovation, const float variance, estimator_aid_source1d_s& aid_src_status)
 {
+	// filtered innovation for preflight checks
+	_heading_innov_lpf.update(innovation);
+
 	aid_src_status.innovation = innovation;
 
 	Vector24f H_YAW;

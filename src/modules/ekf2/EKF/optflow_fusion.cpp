@@ -102,6 +102,10 @@ void Ekf::updateOptFlow(estimator_aid_source2d_s &aid_src)
 
 void Ekf::fuseOptFlow()
 {
+	// filtered velocity innovation
+	_vel_pos_innov_lpf[0].update(_state.vel(0) - _flow_vel_ne(0));
+	_vel_pos_innov_lpf[1].update(_state.vel(1) - _flow_vel_ne(1));
+
 	_aid_src_optical_flow.fusion_enabled = true;
 
 	const float R_LOS = _aid_src_optical_flow.observation_variance[0];
