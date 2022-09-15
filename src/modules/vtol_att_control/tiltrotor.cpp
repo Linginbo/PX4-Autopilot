@@ -488,6 +488,13 @@ void Tiltrotor::fill_actuator_outputs()
 
 	} else {
 
+		// make sure that if disarmed the tilt is at the spinup value,
+		// even if no attitdue controller is running and thus update_mc_state() is thus not run
+		// TODO: enable VTOL operation properly when in a non-attitude controlled mode (e.g. Acro)
+		if (!_v_control_mode->flag_armed && _param_vt_tilt_spinup.get() > FLT_EPSILON) {
+			_tilt_control = _param_vt_tilt_spinup.get();
+		}
+
 		// see comment above for passing magnitude of thrust, not 3D thrust
 		mc_out[actuator_controls_s::INDEX_THROTTLE] = mc_in[actuator_controls_s::INDEX_THROTTLE] * _mc_throttle_weight;
 		_thrust_setpoint_0->xyz[2] = mc_in[actuator_controls_s::INDEX_THROTTLE] * _mc_throttle_weight;
