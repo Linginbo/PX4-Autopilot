@@ -2049,7 +2049,7 @@ Commander::run()
 			const bool motor_failure_changed = ((_vehicle_status.failure_detector_status & vehicle_status_s::FAILURE_MOTOR) > 0) !=
 							   _failure_detector.getStatus().flags.motor;
 			_vehicle_status.failure_detector_status = _failure_detector.getStatus().value;
-			auto fd_status_flags = _failure_detector.getStatusFlags();
+			const decltype(failure_detector_status_u::flags) fd_status_flags = _failure_detector.getStatusFlags();
 			_status_changed = true;
 
 			if (_arm_state_machine.isArmed()) {
@@ -2354,7 +2354,7 @@ void Commander::checkForMissionUpdate()
 	if (_mission_result_sub.updated()) {
 		const mission_result_s &mission_result = _mission_result_sub.get();
 
-		const auto prev_mission_instance_count = mission_result.instance_count;
+		const uint32_t prev_mission_instance_count = mission_result.instance_count;
 		_mission_result_sub.update();
 
 		// if mission_result is valid for the current mission
@@ -2568,9 +2568,10 @@ void Commander::vtolStatusUpdate()
 	if (_vtol_vehicle_status_sub.update(&_vtol_vehicle_status) && is_vtol(_vehicle_status)) {
 
 		// Check if there has been any change while updating the flags (transition = rotary wing status)
-		const auto new_vehicle_type = _vtol_vehicle_status.vehicle_vtol_state == vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW ?
-					      vehicle_status_s::VEHICLE_TYPE_FIXED_WING :
-					      vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
+		const uint8_t new_vehicle_type = _vtol_vehicle_status.vehicle_vtol_state == vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW
+						 ?
+						 vehicle_status_s::VEHICLE_TYPE_FIXED_WING :
+						 vehicle_status_s::VEHICLE_TYPE_ROTARY_WING;
 
 		if (new_vehicle_type != _vehicle_status.vehicle_type) {
 			_vehicle_status.vehicle_type = new_vehicle_type;
