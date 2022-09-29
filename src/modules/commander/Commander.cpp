@@ -1791,6 +1791,34 @@ Commander::run()
 			if (!_arm_state_machine.isArmed()) {
 				updateParameters();
 
+#if PX4_EXPORT_RESTRICTION_BUILD
+
+				// If export compliance build flag is set, restrict COM_FLT_TIME_MAX to range (1s, EXPORT_RESTRICTED_MAX_FLIGHT_TIME)
+				if (_param_com_flt_time_max.get() > EXPORT_RESTRICTED_MAX_FLIGHT_TIME || _param_com_flt_time_max.get() < 1) {
+					_param_com_flt_time_max.set(EXPORT_RESTRICTED_MAX_FLIGHT_TIME);
+					_param_com_flt_time_max.commit();
+					mavlink_log_critical(&_mavlink_log_pub, "COM_FLT_TIME_MAX constrained to range (1s, 3540s)\t");
+					/* EVENT
+					* @description <param>COM_FLT_TIME_MAX</param> is set to {1:.0}.
+					*/
+					events::send<uint32_t>(events::ID("com_export_restriced_flight_time_limit"), events::Log::Warning,
+							       "COM_FLT_TIME_MAX constrained to range (1s, {1:.0}s)", EXPORT_RESTRICTED_MAX_FLIGHT_TIME);
+				}
+
+				// If export compliance build flag is set, restrict max wind to range (0.1m/s, EXPORT_RESTRICTED_MAX_WIND)
+				if (_param_com_wind_max.get() > EXPORT_RESTRICTED_MAX_WIND || _param_com_wind_max.get() < 0.1f) {
+					_param_com_wind_max.set(EXPORT_RESTRICTED_MAX_WIND);
+					_param_com_wind_max.commit();
+					mavlink_log_critical(&_mavlink_log_pub, "COM_WIND_MAX constrained to range (0.1m/s, %.1fm/s)\t",
+							     (double)EXPORT_RESTRICTED_MAX_WIND);
+					/* EVENT
+					* @description <param>COM_WIND_MAX</param> is set to {1:.0}.
+					*/
+					events::send<float>(events::ID("com_export_restriced_wind_limit"), events::Log::Warning,
+							    "COM_WIND_MAX constrained to range (0.1m/s, {1:.1}m/s)", EXPORT_RESTRICTED_MAX_WIND);
+				}
+
+#endif
 				_status_changed = true;
 			}
 		}
