@@ -150,8 +150,21 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 
 	case commander_state_s::MAIN_STATE_AUTO_LOITER:
 
-		/* need global position estimate */
-		if (status_flags.global_position_valid) {
+		/* need global position estimate
+		 * and there was not a previously triggered flight time or max
+		 * wind speed rtl in the current flight */
+
+		if (status_flags.max_flight_time_exceeded) {
+			events::send(events::ID("state_machine_loiter_rejected_flight_time"),
+			{events::Log::Warning, events::LogInternal::Info},
+			"Mode rejected due to flight time above limit");
+
+		} else if (status_flags.max_wind_speed_exceeded) {
+			events::send(events::ID("state_machine_loiter_rejected_wind"),
+			{events::Log::Warning, events::LogInternal::Info},
+			"Mode rejected due to wind speed above limit");
+
+		} else if (status_flags.global_position_valid) {
 			ret = TRANSITION_CHANGED;
 		}
 
@@ -160,8 +173,21 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 	case commander_state_s::MAIN_STATE_AUTO_FOLLOW_TARGET:
 	case commander_state_s::MAIN_STATE_ORBIT:
 
-		/* Follow and orbit only implemented for multicopter */
-		if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
+		/* Follow and orbit only implemented for multicopter,
+		 * and only allow if there was not a previously triggered flight time or max
+		 * wind speed rtl in the current flight */
+
+		if (status_flags.max_flight_time_exceeded) {
+			events::send(events::ID("state_machine_orbit_rejected_flight_time"),
+			{events::Log::Warning, events::LogInternal::Info},
+			"Mode rejected due to flight time above limit");
+
+		} else if (status_flags.max_wind_speed_exceeded) {
+			events::send(events::ID("state_machine_orbit_rejected_wind"),
+			{events::Log::Warning, events::LogInternal::Info},
+			"Mode rejected due to wind speed above limit");
+
+		} else if (status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
 			ret = TRANSITION_CHANGED;
 		}
 
@@ -176,10 +202,22 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 
 	case commander_state_s::MAIN_STATE_AUTO_MISSION:
 
-		/* need global position, home position, and a valid mission */
-		if (status_flags.global_position_valid &&
-		    status_flags.auto_mission_available) {
+		/* need global position, home position, and a valid mission
+		 * and there was not a previously triggered flight time or max
+		 * wind speed rtl in the current flight */
 
+		if (status_flags.max_flight_time_exceeded) {
+			events::send(events::ID("state_machine_mission_rejected_flight_time"),
+			{events::Log::Warning, events::LogInternal::Info},
+			"Mission rejected due to flight time above limit");
+
+		} else if (status_flags.max_wind_speed_exceeded) {
+			events::send(events::ID("state_machine_mission_rejected_wind"),
+			{events::Log::Warning, events::LogInternal::Info},
+			"Mission rejected due to wind speed above limit");
+
+		} else if (status_flags.global_position_valid &&
+			   status_flags.auto_mission_available) {
 			ret = TRANSITION_CHANGED;
 		}
 
