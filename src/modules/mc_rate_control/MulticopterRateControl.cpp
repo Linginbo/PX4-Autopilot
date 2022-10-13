@@ -221,10 +221,10 @@ MulticopterRateControl::Run()
 
 				if (!control_allocator_status.torque_setpoint_achieved) {
 					for (size_t i = 0; i < 3; i++) {
-						if (control_allocator_status.unallocated_torque[i] > FLT_EPSILON) {
+						if (control_allocator_status.unallocated_torque[i] > 0.2f) {
 							saturation_positive(i) = true;
 
-						} else if (control_allocator_status.unallocated_torque[i] < -FLT_EPSILON) {
+						} else if (control_allocator_status.unallocated_torque[i] < -0.2f) {
 							saturation_negative(i) = true;
 						}
 					}
