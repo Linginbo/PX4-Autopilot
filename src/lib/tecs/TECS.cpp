@@ -144,30 +144,16 @@ void TECSReferenceModel::update(const float dt, const AltitudeReferenceState &se
 		altitude = 0.0f;
 	}
 
-	// TODO rearrange handling of altitude rate and altitude. alt_rate should rather be a feedforward term.
-	float virtual_altitude_setpoint{setpoint.alt};
-
-	// Velocity setpoint reference
-	const bool input_is_altitude_rate = PX4_ISFINITE(setpoint.alt_rate);
-
-	_velocity_control_traj_generator.setMaxJerk(param.jerk_max);
-	_velocity_control_traj_generator.setMaxAccelUp(param.vert_accel_limit);
-	_velocity_control_traj_generator.setMaxAccelDown(param.vert_accel_limit);
-	_velocity_control_traj_generator.setMaxVelUp(param.max_sink_rate);
-	_velocity_control_traj_generator.setMaxVelDown(param.max_climb_rate);
-
-	if (input_is_altitude_rate) {
-		_velocity_control_traj_generator.setVelSpFeedback(setpoint.alt_rate);
-		_velocity_control_traj_generator.setCurrentPositionEstimate(altitude);
-		_velocity_control_traj_generator.update(dt, setpoint.alt_rate);
-		virtual_altitude_setpoint = _velocity_control_traj_generator.getCurrentPosition();
+	if (PX4_ISFINITE(setpoint.alt_rate)) {
+		_alt_rate_ref = setpoint.alt_rate;
 
 	} else {
-		_velocity_control_traj_generator.reset(0.0f, 0.0f, altitude);
+		_alt_rate_ref = 0.0f;
 	}
 
+
 	// Altitude setpoint reference
-	bool altitude_control_enable{PX4_ISFINITE(virtual_altitude_setpoint)};
+	bool altitude_control_enable{PX4_ISFINITE(setpoint.alt)};
 	_alt_control_traj_generator.setMaxJerk(param.jerk_max);
 	_alt_control_traj_generator.setMaxAccel(param.vert_accel_limit);
 	_alt_control_traj_generator.setMaxVel(fmax(param.max_climb_rate, param.max_sink_rate));
@@ -204,7 +190,7 @@ TECSReferenceModel::AltitudeReferenceState TECSReferenceModel::getAltitudeRefere
 
 float TECSReferenceModel::getAltitudeRateReference() const
 {
-	return _velocity_control_traj_generator.getCurrentVelocity();
+	return _alt_rate_ref;
 }
 
 void TECSReferenceModel::initialize(const AltitudeReferenceState &state)
@@ -220,7 +206,6 @@ void TECSReferenceModel::initialize(const AltitudeReferenceState &state)
 	}
 
 	_alt_control_traj_generator.reset(0.0f, init_state.alt_rate, init_state.alt);
-	_velocity_control_traj_generator.reset(0.0f, init_state.alt_rate, init_state.alt);
 }
 
 void TECSControl::initialize()
@@ -291,7 +276,7 @@ float TECSControl::_altitudeControl(const Setpoint &setpoint, const Input &input
 {
 	float altitude_rate_output;
 	altitude_rate_output = (setpoint.altitude_reference.alt - input.altitude) * param.altitude_error_gain +
-			       param.altitude_setpoint_gain_ff * setpoint.altitude_reference.alt_rate;
+			       param.altitude_setpoint_gain_ff * setpoint.altitude_reference.alt_rate + setpoint.altitude_rate_setpoint;
 	altitude_rate_output = math::constrain(altitude_rate_output, -param.max_sink_rate, param.max_climb_rate);
 
 	return altitude_rate_output;
