@@ -43,6 +43,7 @@
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/posix.h>
+#include <px4_platform_common/px4_mtd.h>
 
 #include <float.h>
 #include <errno.h>
@@ -85,6 +86,7 @@ static int 	do_save(const char *param_file_name);
 static int	do_save_default();
 static int 	do_dump(const char *param_file_name);
 static int 	do_load(const char *param_file_name);
+static int	do_transition();
 static int	do_import(const char *param_file_name = nullptr);
 static int	do_show(const char *search_string, bool only_changed);
 static int	do_show_for_airframe();
@@ -228,6 +230,11 @@ param_main(int argc, char *argv[])
 			} else {
 				return do_load(param_get_default_file());
 			}
+		}
+
+		// Delete after the transition period is completed
+		if (!strcmp(argv[1], "transition")) {
+			return do_transition();
 		}
 
 		if (!strcmp(argv[1], "import")) {
@@ -510,6 +517,40 @@ do_load(const char *param_file_name)
 
 		return 1;
 	}
+
+	return 0;
+}
+
+static int
+do_transition()
+{
+#ifdef __PX4_NUTTX
+
+	int ret_val = px4_mtd_unmount_littlefs_mount_block_device();
+
+	if (ret_val < 0) {
+		PX4_ERR("Transition from LittleFS to Blockdriver");
+	} else {
+		ret_val = do_import("/fs/mtd_params");
+
+		if (ret_val < 0) {
+			PX4_ERR("Import from blockdriver");
+		} else {
+			ret_val = px4_mtd_unmount_block_device_mount_littlefs();
+
+			if (ret_val < 0){
+				PX4_ERR("Transition from Blockdriver to LittleFS failed");
+			} else {
+				ret_val = param_export(param_get_default_file(), nullptr);
+			}
+		}
+	}
+
+	if (ret_val < 0) {
+		return 1;
+	}
+
+#endif
 
 	return 0;
 }
