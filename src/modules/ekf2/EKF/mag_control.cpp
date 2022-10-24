@@ -49,8 +49,6 @@ void Ekf::controlMagFusion()
 		mag_data_ready = _mag_buffer->pop_first_older_than(_imu_sample_delayed.time_us, &mag_sample);
 
 		if (mag_data_ready) {
-			_mag_lpf.update(mag_sample.mag);
-			_mag_counter++;
 
 			// if enabled, use knowledge of theoretical magnetic field vector to calculate a synthetic magnetomter Z component value.
 			// this is useful if there is a lot of interference on the sensor measurement.
@@ -64,6 +62,9 @@ void Ekf::controlMagFusion()
 			} else {
 				_control_status.flags.synthetic_mag_z = false;
 			}
+
+			_mag_lpf.update(mag_sample.mag);
+			_mag_counter++;
 
 			_control_status.flags.mag_field_disturbed = magFieldStrengthDisturbed(mag_sample.mag);
 
