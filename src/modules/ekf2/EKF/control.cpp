@@ -385,12 +385,11 @@ void Ekf::controlExternalVisionFusion()
 		// determine if we should use the yaw observation
 		resetEstimatorAidStatus(_aid_src_ev_yaw);
 		const float measured_hdg = getEulerYaw(_ev_sample_delayed.quat);
-		const float ev_yaw_obs_var = fmaxf(_ev_sample_delayed.angVar, 1.e-4f);
 
 		if (PX4_ISFINITE(measured_hdg)) {
 			_aid_src_ev_yaw.timestamp_sample = _ev_sample_delayed.time_us;
 			_aid_src_ev_yaw.observation = measured_hdg;
-			_aid_src_ev_yaw.observation_variance = ev_yaw_obs_var;
+			_aid_src_ev_yaw.observation_variance = fmaxf(_ev_sample_delayed.angVar, 1.e-4f);
 			_aid_src_ev_yaw.fusion_enabled = _control_status.flags.ev_yaw;
 
 			if (_control_status.flags.ev_yaw) {
@@ -398,9 +397,9 @@ void Ekf::controlExternalVisionFusion()
 					resetYawToEv();
 				}
 
-				const float innovation = wrap_pi(getEulerYaw(_R_to_earth) - measured_hdg);
+				_aid_src_ev_yaw.innovation = wrap_pi(getEulerYaw(_R_to_earth) - measured_hdg);
 
-				fuseYaw(innovation, ev_yaw_obs_var, _aid_src_ev_yaw);
+				fuseYaw(_aid_src_ev_yaw);
 
 			} else {
 				// populate estimator_aid_src_ev_yaw with delta heading innovations for logging
