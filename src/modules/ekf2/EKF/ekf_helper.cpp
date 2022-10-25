@@ -259,7 +259,8 @@ bool Ekf::resetMagHeading(const Vector3f &mag)
 		const Vector3f mag_earth_pred = R_to_earth * mag;
 
 		// calculate the observed yaw angle and yaw variance
-		float yaw_new = -atan2f(mag_earth_pred(1), mag_earth_pred(0)) + getMagDeclination();
+		_mag_declination = getMagDeclination();
+		float yaw_new = -atan2f(mag_earth_pred(1), mag_earth_pred(0)) + _mag_declination;
 		float yaw_new_variance = sq(fmaxf(_params.mag_heading_noise, 1.e-2f));
 
 		// update quaternion states and corresponding covarainces
@@ -693,6 +694,8 @@ void Ekf::resetAccelBias()
 
 void Ekf::resetMagBiasAndYaw()
 {
+	stopMagFusion();
+
 	// Zero the magnetometer bias states
 	_state.mag_B.zero();
 
@@ -702,10 +705,6 @@ void Ekf::resetMagBiasAndYaw()
 
 	// reset any saved covariance data for re-use when auto-switching between heading and 3-axis fusion
 	_saved_mag_bf_variance.zero();
-
-	if (_control_status.flags.mag_hdg || _control_status.flags.mag_3D) {
-		_mag_yaw_reset_req = true;
-	}
 
 	_control_status.flags.mag_fault = false;
 
@@ -1066,9 +1065,11 @@ void Ekf::initialiseQuatCovariances(Vector3f &rot_vec_var)
 
 void Ekf::stopMagFusion()
 {
-	stopMag3DFusion();
-	stopMagHdgFusion();
-	clearMagCov();
+	if (_control_status.flags.mag_hdg || _control_status.flags.mag_3D) {
+		stopMag3DFusion();
+		stopMagHdgFusion();
+		clearMagCov();
+	}
 }
 
 void Ekf::stopMag3DFusion()

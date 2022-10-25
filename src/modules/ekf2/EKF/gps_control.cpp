@@ -159,9 +159,6 @@ void Ekf::controlGpsFusion()
 				// Do not use external vision for yaw if using GPS because yaw needs to be
 				// defined relative to an NED reference frame
 				if (_control_status.flags.ev_yaw) {
-
-					_mag_yaw_reset_req = true;
-
 					// Stop the vision for yaw fusion and do not allow it to start again
 					stopEvYawFusion();
 					_inhibit_ev_yaw_use = true;
