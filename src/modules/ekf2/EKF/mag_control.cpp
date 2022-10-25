@@ -117,7 +117,15 @@ void Ekf::controlMagFusion()
 
 		// FALLTHROUGH
 		case MagFuseType::AUTO:
-			selectMagAuto();
+			check3DMagFusionSuitability();
+
+			if (canUse3DMagFusion()) {
+				startMag3DFusion();
+
+			} else {
+				startMagHdgFusion();
+			}
+
 			break;
 
 		case MagFuseType::INDOOR:
@@ -233,12 +241,6 @@ bool Ekf::magYawReset(const Vector3f &mag)
 	}
 
 	return false;
-}
-
-void Ekf::selectMagAuto()
-{
-	check3DMagFusionSuitability();
-	canUse3DMagFusion() ? startMag3DFusion() : startMagHdgFusion();
 }
 
 void Ekf::check3DMagFusionSuitability()

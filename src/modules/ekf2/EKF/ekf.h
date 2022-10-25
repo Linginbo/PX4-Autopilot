@@ -891,7 +891,6 @@ private:
 
 	bool magYawReset(const Vector3f &mag);
 
-	void selectMagAuto();
 	void check3DMagFusionSuitability();
 	void checkYawAngleObservability();
 	void checkMagBiasObservability();
