@@ -172,6 +172,7 @@ FixedwingAttitudeControl::vehicle_manual_poll(const float yaw_body)
 					_rates_sp.thrust_body[0] = math::constrain(_manual_control_setpoint.z, 0.0f, 1.0f);
 
 					_rate_sp_pub.publish(_rates_sp);
+					_rate_control.resetIntegral();
 
 				} else {
 					/* manual/direct control */
