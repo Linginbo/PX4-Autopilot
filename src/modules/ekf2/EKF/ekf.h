@@ -489,6 +489,7 @@ private:
 	bool _flow_for_terrain_data_ready{false}; /// same flag as "_flow_data_ready" but used for separate terrain estimator
 
 	uint64_t _time_prev_gps_us{0};	///< time stamp of previous GPS data retrieved from the buffer (uSec)
+
 	uint64_t _time_last_horizontal_aiding{0}; ///< amount of time we have been doing inertial only deadreckoning (uSec)
 	uint64_t _time_last_v_pos_aiding{0};
 	uint64_t _time_last_v_vel_aiding{0};
@@ -633,7 +634,6 @@ private:
 
 	// height sensor status
 	bool _baro_hgt_faulty{false};		///< true if baro data have been declared faulty TODO: move to fault flags
-	bool _gps_intermittent{true};           ///< true if data into the buffer is intermittent
 
 	// imu fault status
 	uint64_t _time_bad_vert_accel{0};	///< last time a bad vertical accel was detected (uSec)
@@ -1026,8 +1026,6 @@ private:
 	void stopAirspeedFusion();
 
 	void stopGpsFusion();
-	void stopGpsPosFusion();
-	void stopGpsVelFusion();
 
 	void startGpsYawFusion(const gpsSample &gps_sample);
 	void stopGpsYawFusion();

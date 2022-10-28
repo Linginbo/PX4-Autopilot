@@ -198,6 +198,12 @@ bool Ekf::canResetMagHeading() const
 
 void Ekf::runInAirYawReset()
 {
+	// prevent a reset being performed more than once on the same frame
+	if ((_flt_mag_align_start_time == _imu_sample_delayed.time_us)
+	    || (_control_status_prev.flags.yaw_align != _control_status.flags.yaw_align)) {
+		return;
+	}
+
 	if (_mag_yaw_reset_req && !_is_yaw_fusion_inhibited) {
 		bool has_realigned_yaw = false;
 
@@ -233,6 +239,8 @@ void Ekf::runInAirYawReset()
 				);
 
 			resetMagCov();
+
+			has_realigned_yaw = true;
 		}
 
 		if (!has_realigned_yaw && canResetMagHeading()) {
