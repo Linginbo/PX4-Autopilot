@@ -237,9 +237,8 @@ public:
 	void get_ekf_ctrl_limits(float *vxy_max, float *vz_max, float *hagl_min, float *hagl_max) const;
 
 	// Reset all IMU bias states and covariances to initial alignment values.
-	void resetImuBias();
-	void resetGyroBias();
-	void resetAccelBias();
+	void resetGyroBias() override final;
+	void resetAccelBias() override final;
 
 	// Reset all magnetometer bias states and covariances to initial alignment values.
 	// Requests full mag yaw reset (if using mag)

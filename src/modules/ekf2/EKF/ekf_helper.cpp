@@ -680,12 +680,6 @@ void Ekf::get_ekf_ctrl_limits(float *vxy_max, float *vz_max, float *hagl_min, fl
 	}
 }
 
-void Ekf::resetImuBias()
-{
-	resetGyroBias();
-	resetAccelBias();
-}
-
 void Ekf::resetGyroBias()
 {
 	// Zero the delta angle and delta velocity bias states
@@ -694,6 +688,8 @@ void Ekf::resetGyroBias()
 	// Zero the corresponding covariances and set
 	// variances to the values use for initial alignment
 	P.uncorrelateCovarianceSetVariance<3>(10, sq(_params.switch_on_gyro_bias * _dt_ekf_avg));
+
+	_delta_angle_bias_var_accum.zero();
 }
 
 void Ekf::resetAccelBias()
@@ -706,7 +702,11 @@ void Ekf::resetAccelBias()
 	P.uncorrelateCovarianceSetVariance<3>(13, sq(_params.switch_on_accel_bias * _dt_ekf_avg));
 
 	// Set previous frame values
-	_prev_dvel_bias_var = P.slice<3, 3>(13, 13).diag();
+	_prev_dvel_bias_var(0) = P(13, 13);
+	_prev_dvel_bias_var(1) = P(14, 14);
+	_prev_dvel_bias_var(2) = P(15, 15);
+
+	_delta_vel_bias_var_accum.zero();
 }
 
 void Ekf::resetMagBiasAndYaw()

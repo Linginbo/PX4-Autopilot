@@ -250,6 +250,9 @@ public:
 	// Getter for the average EKF update period in s
 	float get_dt_ekf_avg() const { return _dt_ekf_avg; }
 
+	virtual void resetGyroBias() {}
+	virtual void resetAccelBias() {}
+
 	// Getters for samples on the delayed time horizon
 	const imuSample &get_imu_sample_delayed() const { return _imu_sample_delayed; }
 	const imuSample &get_imu_sample_newest() const { return _newest_high_rate_imu_sample; }

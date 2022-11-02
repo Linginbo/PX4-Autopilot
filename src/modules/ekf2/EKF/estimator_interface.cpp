@@ -80,8 +80,23 @@ void EstimatorInterface::setIMUData(const imuSample &imu_sample)
 
 		_imu_buffer.push(_imu_down_sampler.getDownSampledImuAndTriggerReset());
 
+		const uint8_t accel_calibration_count = _imu_sample_delayed.accel_calibration_count;
+		const uint8_t gyro_calibration_count = _imu_sample_delayed.gyro_calibration_count;
+
 		// get the oldest data from the buffer
 		_imu_sample_delayed = _imu_buffer.get_oldest();
+
+		// reset accel bias if calibration changed
+		if (_imu_sample_delayed.accel_calibration_count != accel_calibration_count) {
+			ECL_INFO("IMU accel calibration changed, resetting bias");
+			resetAccelBias();
+		}
+
+		// reset gyro bias if calibration changed
+		if (_imu_sample_delayed.gyro_calibration_count != gyro_calibration_count) {
+			ECL_INFO("IMU gyro calibration changed, resetting bias");
+			resetGyroBias();
+		}
 
 		// calculate the minimum interval between observations required to guarantee no loss of data
 		// this will occur if data is overwritten before its time stamp falls behind the fusion time horizon

@@ -391,12 +391,11 @@ void EKF2::Run()
 			imu_sample_new.delta_ang = Vector3f{imu.delta_angle};
 			imu_sample_new.delta_vel_dt = imu.delta_velocity_dt * 1.e-6f;
 			imu_sample_new.delta_vel = Vector3f{imu.delta_velocity};
-
-			if (imu.delta_velocity_clipping > 0) {
-				imu_sample_new.delta_vel_clipping[0] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_X;
-				imu_sample_new.delta_vel_clipping[1] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_Y;
-				imu_sample_new.delta_vel_clipping[2] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_Z;
-			}
+			imu_sample_new.delta_vel_clipping[0] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_X;
+			imu_sample_new.delta_vel_clipping[1] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_Y;
+			imu_sample_new.delta_vel_clipping[2] = imu.delta_velocity_clipping & vehicle_imu_s::CLIPPING_Z;
+			imu_sample_new.accel_calibration_count = imu.accel_calibration_count;
+			imu_sample_new.gyro_calibration_count = imu.gyro_calibration_count;
 
 			imu_dt = imu.delta_angle_dt;
 
@@ -413,7 +412,6 @@ void EKF2::Run()
 					PX4_DEBUG("%d - resetting accelerometer bias", _instance);
 					_device_id_accel = imu.accel_device_id;
 
-					_ekf.resetAccelBias();
 					_accel_calibration_count = imu.accel_calibration_count;
 
 					// reset bias learning
@@ -426,7 +424,6 @@ void EKF2::Run()
 					PX4_DEBUG("%d - resetting rate gyro bias", _instance);
 					_device_id_gyro = imu.gyro_device_id;
 
-					_ekf.resetGyroBias();
 					_gyro_calibration_count = imu.gyro_calibration_count;
 
 					// reset bias learning
@@ -450,20 +447,16 @@ void EKF2::Run()
 			imu_sample_new.delta_ang = Vector3f{sensor_combined.gyro_rad} * imu_sample_new.delta_ang_dt;
 			imu_sample_new.delta_vel_dt = sensor_combined.accelerometer_integral_dt * 1.e-6f;
 			imu_sample_new.delta_vel = Vector3f{sensor_combined.accelerometer_m_s2} * imu_sample_new.delta_vel_dt;
-
-			if (sensor_combined.accelerometer_clipping > 0) {
-				imu_sample_new.delta_vel_clipping[0] = sensor_combined.accelerometer_clipping & sensor_combined_s::CLIPPING_X;
-				imu_sample_new.delta_vel_clipping[1] = sensor_combined.accelerometer_clipping & sensor_combined_s::CLIPPING_Y;
-				imu_sample_new.delta_vel_clipping[2] = sensor_combined.accelerometer_clipping & sensor_combined_s::CLIPPING_Z;
-			}
+			imu_sample_new.delta_vel_clipping[0] = sensor_combined.accelerometer_clipping & sensor_combined_s::CLIPPING_X;
+			imu_sample_new.delta_vel_clipping[1] = sensor_combined.accelerometer_clipping & sensor_combined_s::CLIPPING_Y;
+			imu_sample_new.delta_vel_clipping[2] = sensor_combined.accelerometer_clipping & sensor_combined_s::CLIPPING_Z;
+			imu_sample_new.accel_calibration_count = sensor_combined.accel_calibration_count;
+			imu_sample_new.gyro_calibration_count = sensor_combined.gyro_calibration_count;
 
 			imu_dt = sensor_combined.gyro_integral_dt;
 
 			if (sensor_combined.accel_calibration_count != _accel_calibration_count) {
-
 				PX4_DEBUG("%d - resetting accelerometer bias", _instance);
-
-				_ekf.resetAccelBias();
 				_accel_calibration_count = sensor_combined.accel_calibration_count;
 
 				// reset bias learning
@@ -471,10 +464,7 @@ void EKF2::Run()
 			}
 
 			if (sensor_combined.gyro_calibration_count != _gyro_calibration_count) {
-
 				PX4_DEBUG("%d - resetting rate gyro bias", _instance);
-
-				_ekf.resetGyroBias();
 				_gyro_calibration_count = sensor_combined.gyro_calibration_count;
 
 				// reset bias learning
@@ -490,8 +480,6 @@ void EKF2::Run()
 
 					_device_id_accel = sensor_selection.accel_device_id;
 
-					_ekf.resetAccelBias();
-
 					// reset bias learning
 					_accel_cal = {};
 				}
@@ -499,8 +487,6 @@ void EKF2::Run()
 				if (_device_id_gyro != sensor_selection.gyro_device_id) {
 
 					_device_id_gyro = sensor_selection.gyro_device_id;
-
-					_ekf.resetGyroBias();
 
 					// reset bias learning
 					_gyro_cal = {};

@@ -178,6 +178,8 @@ struct imuSample {
 	float       delta_ang_dt{};           ///< delta angle integration period (sec)
 	float       delta_vel_dt{};           ///< delta velocity integration period (sec)
 	bool        delta_vel_clipping[3] {}; ///< true (per axis) if this sample contained any accelerometer clipping
+	uint8_t     accel_calibration_count{0}; ///< Calibration changed counter. Monotonically increases whenever accelerometer calibration changes.
+	uint8_t     gyro_calibration_count{0};  ///< Calibration changed counter. Monotonically increases whenever rate gyro calibration changes.
 };
 
 struct gpsSample {
