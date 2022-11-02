@@ -711,6 +711,8 @@ void Ekf::resetAccelBias()
 
 void Ekf::resetMagBiasAndYaw()
 {
+	ECL_INFO("resetting mag bias and yaw");
+
 	// Zero the magnetometer bias states
 	_state.mag_B.zero();
 
@@ -720,10 +722,6 @@ void Ekf::resetMagBiasAndYaw()
 
 	// reset any saved covariance data for re-use when auto-switching between heading and 3-axis fusion
 	_saved_mag_bf_variance.zero();
-
-	if (_control_status.flags.mag_hdg || _control_status.flags.mag_3D) {
-		_mag_yaw_reset_req = true;
-	}
 
 	_control_status.flags.mag_fault = false;
 
@@ -1084,9 +1082,12 @@ void Ekf::initialiseQuatCovariances(Vector3f &rot_vec_var)
 
 void Ekf::stopMagFusion()
 {
-	stopMag3DFusion();
-	stopMagHdgFusion();
-	clearMagCov();
+	if (_control_status.flags.mag_hdg || _control_status.flags.mag_3D) {
+		ECL_INFO("stopping mag fusion");
+		stopMag3DFusion();
+		stopMagHdgFusion();
+		clearMagCov();
+	}
 }
 
 void Ekf::stopMag3DFusion()

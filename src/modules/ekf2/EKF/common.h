@@ -194,6 +194,7 @@ struct gpsSample {
 struct magSample {
 	uint64_t    time_us{};  ///< timestamp of the measurement (uSec)
 	Vector3f    mag{};      ///< NED magnetometer body frame measurements (Gauss)
+	uint8_t     calibration_count{0}; ///< Calibration changed counter. Monotonically increases whenever calibration changes.
 };
 
 struct baroSample {

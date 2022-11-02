@@ -49,6 +49,18 @@ void Ekf::controlMagFusion()
 		mag_data_ready = _mag_buffer->pop_first_older_than(_imu_sample_delayed.time_us, &mag_sample);
 
 		if (mag_data_ready) {
+
+			// calibration has changed, reset saved mag bias
+			if (mag_sample.calibration_count != _mag_calibration_count) {
+				_mag_calibration_count = mag_sample.calibration_count;
+
+				resetMagBiasAndYaw();
+
+				if (_control_status.flags.mag_hdg || _control_status.flags.mag_3D) {
+					_mag_yaw_reset_req = true;
+				}
+			}
+
 			_mag_lpf.update(mag_sample.mag);
 			_mag_counter++;
 
