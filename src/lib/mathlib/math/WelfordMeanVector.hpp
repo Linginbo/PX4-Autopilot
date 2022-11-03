@@ -32,24 +32,22 @@
  ****************************************************************************/
 
 /**
- * @file WelfordMean.hpp
+ * @file WelfordMeanVector.hpp
  *
  * Welford's online algorithm for computing mean and variance.
  */
 
 #pragma once
 
-#include <lib/mathlib/mathlib.h>
-
 namespace math
 {
 
-template <typename Type = float>
-class WelfordMean
+template <typename Type, size_t N>
+class WelfordMeanVector
 {
 public:
 	// For a new value, compute the new count, new mean, the new M2.
-	bool update(const Type &new_value)
+	bool update(const matrix::Vector<Type, N> &new_value)
 	{
 		if (_count == 0) {
 			reset();
@@ -61,7 +59,7 @@ public:
 			// count overflow
 			// reset count, but maintain mean and variance
 			_M2 = variance();
-			_M2_accum = 0;
+			_M2_accum.zero();
 
 			_count = 1;
 
@@ -71,19 +69,19 @@ public:
 
 		// mean accumulates the mean of the entire dataset
 		// delta can be very small compared to the mean, use algorithm to minimise numerical error
-		const Type delta{new_value - _mean};
-		const Type mean_change = delta / _count;
+		const matrix::Vector<Type, N> delta{new_value - _mean};
+		const matrix::Vector<Type, N> mean_change = delta / _count;
 		_mean = kahanSummation(_mean, mean_change, _mean_accum);
 
 		// M2 aggregates the squared distance from the mean
 		// count aggregates the number of samples seen so far
-		const Type M2_change = delta * (new_value - _mean);
+		const matrix::Vector<Type, N> M2_change = delta.emult(new_value - _mean);
 		_M2 = kahanSummation(_M2, M2_change, _M2_accum);
 
 		// protect against floating point precision causing negative variances
-		_M2 = math::max(_M2, 0.f);
+		_M2 = matrix::max(_M2, {});
 
-		if (!PX4_ISFINITE(_mean) || !PX4_ISFINITE(_M2)) {
+		if (!_mean.isAllFinite() || !_M2.isAllFinite()) {
 			reset();
 			return false;
 		}
@@ -97,17 +95,16 @@ public:
 	void reset()
 	{
 		_count = 0;
-		_mean = 0;
-		_M2 = 0;
+		_mean.zero();
+		_M2.zero();
 
-		_mean_accum = 0;
-		_M2_accum = 0;
+		_mean_accum.zero();
+		_M2_accum.zero();
 	}
 
 	// Retrieve the mean, variance and sample variance
-	Type mean() const { return _mean; }
-	Type variance() const { return _M2 / _count; }
-	Type standard_deviation() const { return std::sqrt(variance()); }
+	matrix::Vector<Type, N> mean() const { return _mean; }
+	matrix::Vector<Type, N> variance() const { return _M2 / _count; }
 
 private:
 
@@ -115,19 +112,20 @@ private:
 	// This function relies on the caller to be responsible for keeping a copy of
 	// "accumulator" and passing this value at the next iteration.
 	// Ref: https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-	inline Type kahanSummation(Type sum_previous, Type input, Type &accumulator)
+	inline matrix::Vector<Type, N> kahanSummation(const matrix::Vector<Type, N> &sum_previous,
+			const matrix::Vector<Type, N> &input, matrix::Vector<Type, N> &accumulator)
 	{
-		const Type y = input - accumulator;
-		const Type t = sum_previous + y;
+		const matrix::Vector<Type, N> y = input - accumulator;
+		const matrix::Vector<Type, N> t = sum_previous + y;
 		accumulator = (t - sum_previous) - y;
 		return t;
 	}
 
-	Type _mean{};
-	Type _M2{};
+	matrix::Vector<Type, N> _mean{};
+	matrix::Vector<Type, N> _M2{};
 
-	Type _mean_accum{};  ///< kahan summation algorithm accumulator for mean
-	Type _M2_accum{};    ///< kahan summation algorithm accumulator for M2
+	matrix::Vector<Type, N> _mean_accum{};  ///< kahan summation algorithm accumulator for mean
+	matrix::Vector<Type, N> _M2_accum{};    ///< kahan summation algorithm accumulator for M2
 
 	uint16_t _count{0};
 };

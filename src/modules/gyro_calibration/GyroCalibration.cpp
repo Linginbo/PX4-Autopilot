@@ -191,8 +191,6 @@ void GyroCalibration::Run()
 
 
 	// check if sufficient data has been gathered to update calibration
-	bool sufficient_samples = false;
-
 	for (int gyro = 0; gyro < _sensor_gyro_subs.size(); gyro++) {
 		if ((_gyro_calibration[gyro].device_id() != 0) && _gyro_mean[gyro].valid()) {
 			// periodically check variance
@@ -209,33 +207,31 @@ void GyroCalibration::Run()
 					return;
 				}
 			}
-
-			if (_gyro_mean[gyro].count() > 5000) {
-				sufficient_samples = true;
-
-			} else {
-				sufficient_samples = false;
-				return;
-			}
 		}
 	}
 
 
 	// update calibrations for all available gyros
-	if (sufficient_samples && (hrt_elapsed_time(&_last_calibration_update) > 10_s)) {
-		bool calibration_updated = false;
+	if (hrt_elapsed_time(&_last_calibration_update) > 5_s) {
 
+		// check variance again before saving
 		for (int gyro = 0; gyro < _sensor_gyro_subs.size(); gyro++) {
-			if (_gyro_calibration[gyro].device_id() != 0 && _gyro_mean[gyro].valid()) {
+			if (_gyro_calibration[gyro].device_id() != 0) {
 
-				// check variance again before saving
-				if (_gyro_mean[gyro].variance().longerThan(0.001f)) {
+				if (!_gyro_mean[gyro].valid() || _gyro_mean[gyro].variance().longerThan(0.001f)) {
 					// reset all
 					PX4_DEBUG("gyro %d variance longer than 0.001f (%.3f), resetting all",
 						  gyro, (double)_gyro_mean[gyro].variance().length());
 					Reset();
 					return;
 				}
+			}
+		}
+
+		bool calibration_updated = false;
+
+		for (int gyro = 0; gyro < _sensor_gyro_subs.size(); gyro++) {
+			if (_gyro_calibration[gyro].device_id() != 0 && _gyro_mean[gyro].valid()) {
 
 				const Vector3f old_offset{_gyro_calibration[gyro].offset()};
 
@@ -268,11 +264,10 @@ void GyroCalibration::Run()
 
 			if (param_save) {
 				param_notify_changes();
-				_last_calibration_update = hrt_absolute_time();
 			}
 		}
 
-		Reset();
+		_last_calibration_update = hrt_absolute_time();
 	}
 }
 
