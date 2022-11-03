@@ -136,7 +136,7 @@ void LandingTargetEstimator::update()
 		bool update_y = _kalman_filter_y.update(_target_position_report.rel_pos_y, measurement_uncertainty);
 
 		_alpha_filter_yaw.setAlpha(_params.yaw_alpha);
-                _alpha_filter_yaw.update(_last_unwrapped_yaw);
+		_alpha_filter_yaw.update(_last_unwrapped_yaw);
 
 		if (!update_x || !update_y) {
 			if (!_faulty) {
