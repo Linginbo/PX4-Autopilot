@@ -84,6 +84,7 @@ set(models
 	plane_catapult
 	plane_lidar
 	px4vision
+	quadtailsitter
 	r1_rover
 	rover
 	shell
