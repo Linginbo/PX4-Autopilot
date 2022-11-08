@@ -133,15 +133,16 @@ FixedwingPositionControl::parameters_update()
 	_tecs.set_integrator_gain_pitch(_param_fw_t_I_gain_pit.get());
 	_tecs.set_throttle_slewrate(_param_fw_thr_slew_max.get());
 	_tecs.set_vertical_accel_limit(_param_fw_t_vert_acc.get());
-	_tecs.set_speed_comp_filter_omega(_param_fw_t_spd_omega.get());
 	_tecs.set_roll_throttle_compensation(_param_fw_t_rll2thr.get());
 	_tecs.set_pitch_damping(_param_fw_t_ptch_damp.get());
 	_tecs.set_altitude_error_time_constant(_param_fw_t_h_error_tc.get());
 	_tecs.set_altitude_rate_ff(_param_fw_t_hrate_ff.get());
 	_tecs.set_airspeed_error_time_constant(_param_fw_t_tas_error_tc.get());
 	_tecs.set_ste_rate_time_const(_param_ste_rate_time_const.get());
-	_tecs.set_speed_derivative_time_constant(_param_tas_rate_time_const.get());
 	_tecs.set_seb_rate_ff_gain(_param_seb_rate_ff.get());
+	_tecs.set_airspeed_measurement_std_dev(_param_speed_standard_dev.get());
+	_tecs.set_airspeed_rate_measurement_std_dev(_param_speed_rate_standard_dev.get());
+	_tecs.set_airspeed_filter_process_std_dev(_param_process_noise_standard_dev.get());
 
 	int check_ret = PX4_OK;
 

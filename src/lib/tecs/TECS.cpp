@@ -42,6 +42,9 @@
 
 #include <px4_platform_common/defines.h>
 
+#include "matrix/Matrix.hpp"
+#include "matrix/Vector2.hpp"
+
 using math::constrain;
 using math::max;
 using math::min;
@@ -54,7 +57,6 @@ void TECSAirspeedFilter::initialize(const float equivalent_airspeed)
 
 	_airspeed_state.speed = equivalent_airspeed;
 	_airspeed_state.speed_rate = 0.0f;
-	_airspeed_rate_filter.reset(0.0f);
 }
 
 void TECSAirspeedFilter::update(const float dt, const Input &input, const Param &param,
@@ -85,49 +87,51 @@ void TECSAirspeedFilter::update(const float dt, const Input &input, const Param 
 		airspeed_derivative = 0.0f;
 	}
 
-	// Alpha filtering done in the TECS module. TODO merge with the second order complementary filter.
-	_airspeed_rate_filter.setParameters(dt, param.speed_derivative_time_const);
+	/* Filter airspeed and rate using a constant airspeed rate model in a steady state Kalman Filter.
+	 We use the gains of the continuous Kalman filter Kc and approximate the discrete version Kalman gain Kd =dt*Kc,
+	 since the continuous algebraic Riccatti equation is easier to solve.
+	*/
 
-	if (PX4_ISFINITE(input.equivalent_airspeed_rate) && airspeed_sensor_available) {
-		_airspeed_rate_filter.update(airspeed_derivative);
+	matrix::Vector2f new_state_predicted;
 
-	} else {
-		_airspeed_rate_filter.reset(0.0f);
-	}
+	new_state_predicted(0) = _airspeed_state.speed + dt * _airspeed_state.speed_rate;
+	new_state_predicted(1) = _airspeed_state.speed_rate;
 
-	AirspeedFilterState new_airspeed_state;
-	// Update TAS rate state
-	const float airspeed_innovation = airspeed - _airspeed_state.speed;
-	const float airspeed_rate_state_input = airspeed_innovation * param.airspeed_estimate_freq * param.airspeed_estimate_freq;
-	new_airspeed_state.speed_rate = _airspeed_state.speed_rate + airspeed_rate_state_input * dt;
+	const float airspeed_noise_inv{1.0f / param.airspeed_measurement_std_dev};
+	const float airspeed_rate_noise_inv{1.0f / param.airspeed_rate_measurement_std_dev};
+	const float airspeed_rate_noise_inv_squared_process_noise{airspeed_rate_noise_inv *airspeed_rate_noise_inv * param.airspeed_rate_noise_std_dev};
+	const float denom{airspeed_noise_inv + airspeed_rate_noise_inv_squared_process_noise};
+	const float common_nom{std::sqrt(param.airspeed_rate_noise_std_dev * (2.0f * airspeed_noise_inv + airspeed_rate_noise_inv_squared_process_noise))};
 
-	// Update TAS state
-	const float airspeed_state_input = _airspeed_state.speed_rate + airspeed_innovation * param.airspeed_estimate_freq * 1.4142f;
-	new_airspeed_state.speed = _airspeed_state.speed + airspeed_state_input * dt;
+	matrix::Matrix<float, 2, 2> kalman_gain;
+	kalman_gain(0, 0) = airspeed_noise_inv * common_nom / denom;
+	kalman_gain(0, 1) = airspeed_rate_noise_inv_squared_process_noise / denom;
+	kalman_gain(1, 0) = airspeed_noise_inv * airspeed_noise_inv * param.airspeed_rate_noise_std_dev / denom;
+	kalman_gain(1, 1) = airspeed_rate_noise_inv_squared_process_noise * common_nom / denom;
 
-	// Clip tas at zero
-	if (new_airspeed_state.speed < 0.0f) {
-		// clip TAS at zero, calculate input that would result in zero speed.
-		float desired_airspeed_state_input = -_airspeed_state.speed / dt;
-		float desired_airspeed_innovation = (desired_airspeed_state_input - _airspeed_state.speed_rate) /
-						    (param.airspeed_estimate_freq * 1.4142f);
-		new_airspeed_state.speed_rate = _airspeed_state.speed_rate + (desired_airspeed_innovation *
-						param.airspeed_estimate_freq * param.airspeed_estimate_freq * dt);
-		new_airspeed_state.speed = 0.0f;
+	const matrix::Vector2f innovation{(airspeed - new_state_predicted(0)), (airspeed_derivative - new_state_predicted(1))};
+	matrix::Vector2f new_state;
+	new_state = new_state_predicted + dt * (kalman_gain * (innovation));
+
+	// Clip airspeed at zero
+	if (new_state(0) < 0.0f) {
+		new_state(0) = 0.0f;
+		// calculate input that would result in zero speed.
+		const float desired_airspeed_innovation = (-new_state_predicted(0) / dt - kalman_gain(0,
+				1) * innovation(1)) / kalman_gain(0,
+						0);
+		new_state(1) = new_state_predicted(1) + dt * (kalman_gain(1, 0) * desired_airspeed_innovation + kalman_gain(1,
+				1) * innovation(1));
 	}
 
 	// Update states
-	_airspeed_state = new_airspeed_state;
+	_airspeed_state.speed = new_state(0);
+	_airspeed_state.speed_rate = new_state(1);
 }
 
 TECSAirspeedFilter::AirspeedFilterState TECSAirspeedFilter::getState() const
 {
-	AirspeedFilterState filter_state{
-		.speed = _airspeed_state.speed,
-		.speed_rate = _airspeed_rate_filter.getState()
-	};
-
-	return filter_state;
+	return _airspeed_state;
 }
 
 void TECSReferenceModel::update(const float dt, const AltitudeReferenceState &setpoint, float altitude,
@@ -365,7 +369,8 @@ void TECSControl::_updatePitchSetpoint(float dt, const Input &input, const Speci
 	 * The weighting can be adjusted between 0 and 2 depending on speed and altitude accuracy requirements.
 	*/
 	// Calculate the specific energy balance rate demand
-	const float seb_rate_setpoint = se.spe.rate_setpoint * weight.spe_weighting - se.ske.rate_setpoint * weight.ske_weighting;
+	const float seb_rate_setpoint = se.spe.rate_setpoint * weight.spe_weighting - se.ske.rate_setpoint *
+					weight.ske_weighting;
 
 	// Calculate the specific energy balance rate error
 	const float seb_rate_error = (se.spe.rate_error * weight.spe_weighting) - (se.ske.rate_error * weight.ske_weighting);
@@ -622,17 +627,21 @@ void TECS::update(float pitch, float altitude, float hgt_setpoint, float EAS_set
 		// Update airspeedfilter submodule
 		const TECSAirspeedFilter::Input airspeed_input{ .equivalent_airspeed = equivalent_airspeed,
 				.equivalent_airspeed_rate = speed_deriv_forward / eas_to_tas};
+
 		_airspeed_param.equivalent_airspeed_trim = _equivalent_airspeed_trim;
+
 		_airspeed_filter.update(dt, airspeed_input, _airspeed_param, _airspeed_enabled);
 		const TECSAirspeedFilter::AirspeedFilterState eas = _airspeed_filter.getState();
 
 		// Update Reference model submodule
 		const TECSReferenceModel::AltitudeReferenceState setpoint{ .alt = hgt_setpoint,
-				.alt_rate = hgt_rate_sp
-								   };
+				.alt_rate = hgt_rate_sp};
+
 		_reference_param.target_climbrate = target_climbrate;
 		_reference_param.target_sinkrate = target_sinkrate;
+
 		_reference_model.update(dt, setpoint, altitude, _reference_param);
+
 		TECSControl::Setpoint control_setpoint;
 		control_setpoint.altitude_reference = _reference_model.getAltitudeReference();
 		control_setpoint.altitude_rate_setpoint = _reference_model.getAltitudeRateReference();
@@ -643,10 +652,10 @@ void TECS::update(float pitch, float altitude, float hgt_setpoint, float EAS_set
 						eas_to_tas * _equivalent_airspeed_max, EAS_setpoint * eas_to_tas, eas_to_tas * eas.speed);
 
 		const TECSControl::Input control_input{ .altitude = altitude,
-						  .altitude_rate = hgt_rate,
-						  .tas = eas_to_tas * eas.speed,
-						  .tas_rate = eas_to_tas * eas.speed_rate
-						};
+							.altitude_rate = hgt_rate,
+							.tas = eas_to_tas * eas.speed,
+							.tas_rate = eas_to_tas * eas.speed_rate}
+		;
 		_control_param.equivalent_airspeed_trim = _equivalent_airspeed_trim;
 		_control_param.tas_min = eas_to_tas * _equivalent_airspeed_min;
 		_control_param.pitch_max = pitch_limit_max;
@@ -654,10 +663,11 @@ void TECS::update(float pitch, float altitude, float hgt_setpoint, float EAS_set
 		_control_param.throttle_trim = throttle_trim;
 		_control_param.throttle_max = throttle_setpoint_max;
 		_control_param.throttle_min = throttle_min;
+
 		const TECSControl::Flag control_flag{ .airspeed_enabled = _airspeed_enabled,
-						.climbout_mode_active = climb_out_setpoint,
-						.detect_underspeed_enabled = _detect_underspeed_enabled
-					      };
+						      .climbout_mode_active = climb_out_setpoint,
+						      .detect_underspeed_enabled = _detect_underspeed_enabled
+						    };
 		_control.update(dt, control_setpoint, control_input, _control_param, control_flag);
 
 		// Detect an uncommanded descent caused by an unachievable airspeed demand

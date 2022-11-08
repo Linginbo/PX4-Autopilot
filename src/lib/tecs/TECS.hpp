@@ -67,8 +67,9 @@ public:
 	 */
 	struct Param {
 		float equivalent_airspeed_trim; 	///< the trim value of the equivalent airspeed om [m/s].
-		float airspeed_estimate_freq; 		///< cross-over frequency of the equivalent airspeed complementary filter [rad/sec].
-		float speed_derivative_time_const;	///< speed derivative filter time constant [s].
+		float airspeed_measurement_std_dev; 	///< airspeed measurement standard deviation in [m/s].
+		float airspeed_rate_measurement_std_dev;///< airspeed rate measurement standard deviation in [m/s²].
+		float airspeed_rate_noise_std_dev; 	///< standard deviation on the airspeed rate deviation in the model in [m/s²].
 	};
 
 	/**
@@ -108,7 +109,6 @@ public:
 
 private:
 	// States
-	AlphaFilter<float> _airspeed_rate_filter;				///< Alpha filter for airspeed rate
 	AirspeedFilterState _airspeed_state{.speed = 0.0f, .speed_rate = 0.0f};	///< Complimentary filter state
 };
 
@@ -521,6 +521,10 @@ public:
 	void set_detect_underspeed_enabled(bool enabled) { _detect_underspeed_enabled = enabled; };
 
 	// // setters for parameters
+	void set_airspeed_measurement_std_dev(float std_dev) {_airspeed_param.airspeed_measurement_std_dev = std_dev;};
+	void set_airspeed_rate_measurement_std_dev(float std_dev) {_airspeed_param.airspeed_rate_measurement_std_dev = std_dev;};
+	void set_airspeed_filter_process_std_dev(float std_dev) {_airspeed_param.airspeed_rate_noise_std_dev = std_dev;};
+
 	void set_integrator_gain_throttle(float gain) { _control_param.integrator_gain_throttle = gain;};
 	void set_integrator_gain_pitch(float gain) { _control_param.integrator_gain_pitch = gain; };
 
@@ -537,7 +541,6 @@ public:
 	void set_pitch_damping(float damping) { _control_param.pitch_damping_gain = damping; }
 	void set_vertical_accel_limit(float limit) { _reference_param.vert_accel_limit = limit; _control_param.vert_accel_limit = limit; };
 
-	void set_speed_comp_filter_omega(float omega) { _airspeed_param.airspeed_estimate_freq = omega; };
 	void set_speed_weight(float weight) { _control_param.pitch_speed_weight = weight; };
 	void set_airspeed_error_time_constant(float time_const) { _control_param.airspeed_error_gain = 1.0f / math::max(time_const, 0.1f); };
 
@@ -547,7 +550,6 @@ public:
 	void set_roll_throttle_compensation(float compensation) { _control_param.load_factor_correction = compensation; };
 	void set_load_factor(float load_factor) { _control_param.load_factor = load_factor; };
 
-	void set_speed_derivative_time_constant(float time_const) { _airspeed_param.speed_derivative_time_const = time_const; };
 	void set_ste_rate_time_const(float time_const) { _control_param.ste_rate_time_const = time_const; };
 
 	void set_seb_rate_ff_gain(float ff_gain) { _control_param.seb_rate_ff = ff_gain; };
@@ -607,8 +609,9 @@ private:
 	/// Airspeed filter parameters.
 	TECSAirspeedFilter::Param _airspeed_param{
 		.equivalent_airspeed_trim = 0.0f,
-		.airspeed_estimate_freq = 0.0f,
-		.speed_derivative_time_const = 0.01f,
+		.airspeed_measurement_std_dev = 0.2f,
+		.airspeed_rate_measurement_std_dev = 0.05f,
+		.airspeed_rate_noise_std_dev = 0.02
 	};
 	/// Reference model parameters.
 	TECSReferenceModel::Param _reference_param{
