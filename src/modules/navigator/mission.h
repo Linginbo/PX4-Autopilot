@@ -65,14 +65,17 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_roi.h>
 #include <uORB/uORB.h>
+#include "lib/mission/planned_mission_interface.h"
 
 class Navigator;
 
-class Mission : public MissionBlock, public ModuleParams
+class Mission : public MissionBlock, public ModuleParams, protected PlannedMissionInterface
 {
 public:
 	Mission(Navigator *navigator);
 	~Mission() override = default;
+
+	void onMissionUpdate(bool has_mission_items_changed) override;
 
 	void on_inactive() override;
 	void on_inactivation() override;
@@ -85,13 +88,13 @@ public:
 	bool landing();
 
 	uint16_t get_land_start_index() const { return _land_start_index; }
-	bool get_land_start_available() const { return _land_start_available; }
+	bool get_land_start_available() const { return _land_start_index != invalid_index; }
 	bool get_mission_finished() const { return _mission_type == MISSION_TYPE_NONE; }
 	bool get_mission_changed() const { return _mission_changed ; }
 	bool get_mission_waypoints_changed() const { return _mission_waypoints_changed ; }
-	double get_landing_start_lat() { return _landing_start_lat; }
-	double get_landing_start_lon() { return _landing_start_lon; }
-	float get_landing_start_alt() { return _landing_start_alt; }
+	double get_landing_start_lat() { return _land_start_pos.lat; }
+	double get_landing_start_lon() { return _land_start_pos.lon; }
+	float get_landing_start_alt() { return 0.0f; }
 
 	double get_landing_lat() { return _landing_lat; }
 	double get_landing_lon() { return _landing_lon; }
@@ -107,9 +110,6 @@ public:
 	 */
 	void set_execution_mode(const uint8_t mode);
 private:
-
-	void mission_init();
-
 	/**
 	 * Update mission topic
 	 */
@@ -174,29 +174,6 @@ private:
 	void do_abort_landing();
 
 	/**
-	 * Read the current and the next mission item. The next mission item read is the
-	 * next mission item that contains a position.
-	 *
-	 * @return true if current mission item available
-	 */
-	bool prepare_mission_items(mission_item_s *mission_item,
-				   mission_item_s *next_position_mission_item, bool *has_next_position_item,
-				   mission_item_s *next_next_position_mission_item = nullptr, bool *has_next_next_position_item = nullptr);
-
-	/**
-	 * Read current (offset == 0) or a specific (offset > 0) mission item
-	 * from the dataman and watch out for DO_JUMPS
-	 *
-	 * @return true if successful
-	 */
-	bool read_mission_item(int offset, struct mission_item_s *mission_item);
-
-	/**
-	 * Save current mission state to dataman
-	 */
-	void save_mission_state();
-
-	/**
 	 * Inform about a changed mission item after a DO_JUMP
 	 */
 	void report_do_jump_mission_changed(int index, int do_jumps_remaining);
@@ -231,11 +208,6 @@ private:
 	 */
 	bool find_mission_land_start();
 
-	/**
-	 * Return the index of the closest mission item to the current global position.
-	 */
-	int32_t index_closest_mission_item() const;
-
 	bool position_setpoint_equal(const position_setpoint_s *p1, const position_setpoint_s *p2) const;
 
 	void publish_navigator_mission_item();
@@ -247,18 +219,6 @@ private:
 	)
 
 	uORB::Publication<navigator_mission_item_s> _navigator_mission_item_pub{ORB_ID::navigator_mission_item};
-
-	uORB::Subscription	_mission_sub{ORB_ID(mission)};		/**< mission subscription */
-	mission_s		_mission {};
-
-	int32_t _current_mission_index{-1};
-
-	// track location of planned mission landing
-	bool	_land_start_available{false};
-	uint16_t _land_start_index{UINT16_MAX};		/**< index of DO_LAND_START, INVALID_DO_LAND_START if no planned landing */
-	double _landing_start_lat{0.0};
-	double _landing_start_lon{0.0};
-	float _landing_start_alt{0.0f};
 
 	double _landing_lat{0.0};
 	double _landing_lon{0.0};
@@ -275,7 +235,6 @@ private:
 		MISSION_TYPE_MISSION
 	} _mission_type{MISSION_TYPE_NONE};
 
-	bool _inited{false};
 	bool _home_inited{false};
 	bool _need_mission_reset{false};
 	bool _mission_waypoints_changed{false};
