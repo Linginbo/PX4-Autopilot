@@ -336,10 +336,10 @@ private:
 	};
 
 	/**
-	 * @brief Calculated specific energy.
+	 * @brief Calculated specific energy rates.
 	 *
 	 */
-	struct SpecificEnergy {
+	struct SpecificEnergyRates {
 		struct {
 			float rate;		///< Specific kinetic energy rate in [m²/s³].
 			float rate_setpoint;	///< Specific kinetic energy setpoint rate in [m²/s³].
@@ -398,13 +398,13 @@ private:
 	 */
 	float _altitudeControl(const Setpoint &setpoint, const Input &input, const Param &param) const;
 	/**
-	 * @brief Update energy balance.
+	 * @brief Calculate specific energy rates.
 	 *
 	 * @param control_setpoint is the controlles altitude and airspeed rate setpoints.
 	 * @param input is the current input measurment of the UAS.
 	 * @return Specific energy rates.
 	 */
-	SpecificEnergy _updateEnergyBalance(const AltitudePitchControl &control_setpoint, const Input &input) const;
+	SpecificEnergyRates _calcSpecificEnergyRates(const AltitudePitchControl &control_setpoint, const Input &input) const;
 	/**
 	 * @brief Detect underspeed.
 	 *
@@ -430,7 +430,7 @@ private:
 	 * @param param is the control parameters.
 	 * @param flag is the control flags.
 	 */
-	void _updatePitchSetpoint(float dt, const Input &input, const SpecificEnergy &se, Param &param, const Flag &flag);
+	void _updatePitchSetpoint(float dt, const Input &input, const SpecificEnergyRates &se, Param &param, const Flag &flag);
 	/**
 	 * @brief Update controlled throttle setpoint.
 	 *
@@ -439,7 +439,7 @@ private:
 	 * @param param is the control parameters.
 	 * @param flag is the control flags.
 	 */
-	void _updateThrottleSetpoint(float dt, const SpecificEnergy &se, const Param &param, const Flag &flag);
+	void _updateThrottleSetpoint(float dt, const SpecificEnergyRates &se, const Param &param, const Flag &flag);
 
 private:
 	// State

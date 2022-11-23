@@ -233,7 +233,7 @@ void TECSControl::update(const float dt, const Setpoint &setpoint, const Input &
 
 	control_setpoint.altitude_rate_setpoint = _altitudeControl(setpoint, input, param);
 
-	SpecificEnergy se{_updateEnergyBalance(control_setpoint, input)};
+	SpecificEnergyRates se{_calcSpecificEnergyRates(control_setpoint, input)};
 
 	_detectUnderspeed(input, param, flag);
 
@@ -286,10 +286,10 @@ float TECSControl::_altitudeControl(const Setpoint &setpoint, const Input &input
 	return altitude_rate_output;
 }
 
-TECSControl::SpecificEnergy TECSControl::_updateEnergyBalance(const AltitudePitchControl &control_setpoint,
+TECSControl::SpecificEnergyRates TECSControl::_calcSpecificEnergyRates(const AltitudePitchControl &control_setpoint,
 		const Input &input) const
 {
-	SpecificEnergy se;
+	SpecificEnergyRates se;
 	// Calculate specific energy rate demands in units of (m**2/sec**3)
 	se.spe.rate_setpoint = control_setpoint.altitude_rate_setpoint * CONSTANTS_ONE_G; // potential energy rate of change
 	se.ske.rate_setpoint = input.tas * control_setpoint.tas_rate_setpoint; // kinetic energy rate of change
@@ -354,7 +354,7 @@ TECSControl::SpecificEnergyWeighting TECSControl::_updateSpeedAltitudeWeights(co
 	return weight;
 }
 
-void TECSControl::_updatePitchSetpoint(float dt, const Input &input, const SpecificEnergy &se, Param &param,
+void TECSControl::_updatePitchSetpoint(float dt, const Input &input, const SpecificEnergyRates &se, Param &param,
 				       const Flag &flag)
 {
 	const SpecificEnergyWeighting weight{_updateSpeedAltitudeWeights(param, flag)};
@@ -426,7 +426,7 @@ void TECSControl::_updatePitchSetpoint(float dt, const Input &input, const Speci
 				    _pitch_setpoint + pitch_increment);
 }
 
-void TECSControl::_updateThrottleSetpoint(float dt, const SpecificEnergy &se, const Param &param, const Flag &flag)
+void TECSControl::_updateThrottleSetpoint(float dt, const SpecificEnergyRates &se, const Param &param, const Flag &flag)
 {
 	const STELimit limit{_calculateTotalEnergyRateLimit(param)};
 
